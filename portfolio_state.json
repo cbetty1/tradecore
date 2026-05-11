@@ -1,0 +1,63 @@
+{
+  "cash": 1761.5233266235364,
+  "starting_capital": 10000.0,
+  "positions": {
+    "AMZN": {
+      "shares": 3.4092,
+      "entry_price": 263.989990234375,
+      "trade_id": 2,
+      "invested": 900.0,
+      "highest_price": 274.989990234375
+    },
+    "AAPL": {
+      "shares": 5.5338,
+      "entry_price": 271.05999755859375,
+      "trade_id": 4,
+      "invested": 1500.0,
+      "highest_price": 294.30999755859375
+    },
+    "MSFT": {
+      "shares": 2.6963,
+      "entry_price": 407.7799987792969,
+      "trade_id": 5,
+      "invested": 1099.5,
+      "highest_price": 420.7699890136719
+    },
+    "ASML": {
+      "shares": 0.6134,
+      "entry_price": 1442.9200439453125,
+      "trade_id": 10,
+      "invested": 885.14,
+      "highest_price": 1592.02001953125
+    },
+    "NVDA": {
+      "shares": 5.4699,
+      "entry_price": 207.8300018310547,
+      "highest_price": 221.9149932861328,
+      "trade_id": 11,
+      "invested": 1136.81
+    },
+    "PLTR": {
+      "shares": 8.497,
+      "entry_price": 133.7899932861328,
+      "highest_price": 137.8000030517578,
+      "trade_id": 12,
+      "invested": 1136.81
+    },
+    "META": {
+      "shares": 2.2116,
+      "entry_price": 612.8800048828125,
+      "highest_price": 616.8099975585938,
+      "trade_id": 13,
+      "invested": 1355.43
+    },
+    "IBM": {
+      "shares": 0.9725,
+      "entry_price": 225.74000549316406,
+      "highest_price": 231.30999755859375,
+      "trade_id": 14,
+      "invested": 219.53
+    }
+  },
+  "last_updated": "2026-05-11 16:31:05.570100"
+}

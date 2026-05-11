@@ -1,0 +1,26 @@
+{
+  "watchlist": [
+    { "ticker": "NVDA", "name": "NVIDIA", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "AAPL", "name": "Apple", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "AMD", "name": "AMD", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "MSFT", "name": "Microsoft", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "AMZN", "name": "Amazon", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "TSLA", "name": "Tesla", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "PLTR", "name": "Palantir", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "META", "name": "Meta", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "GOOGL", "name": "Alphabet", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "ASML", "name": "ASML", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "IBM", "name": "IBM", "exchange": "NYSE", "currency": "USD" },
+{ "ticker": "VWCE.AS", "name": "Vanguard FTSE All-World", "exchange": "AMS", "currency": "EUR" },
+    { "ticker": "VUSA.L", "name": "Vanguard S&P 500", "exchange": "LSE", "currency": "GBP" },
+    { "ticker": "VUKE.L", "name": "Vanguard FTSE 100", "exchange": "LSE", "currency": "GBP" }
+  ],
+  "sectors": [
+    { "ticker": "XLK", "name": "Technology" },
+    { "ticker": "XLF", "name": "Financials" },
+    { "ticker": "XLE", "name": "Energy" },
+    { "ticker": "XLV", "name": "Healthcare" },
+    { "ticker": "XLI", "name": "Industrials" },
+    { "ticker": "XLC", "name": "Communications" }
+  ]
+}

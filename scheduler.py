@@ -1,0 +1,320 @@
+import logging
+import json
+from datetime import datetime
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+scheduler = BlockingScheduler(timezone="Europe/London")
+
+
+def load_watchlist() -> list:
+    """Load watchlist from config."""
+    with open("config/watchlist.json") as f:
+        return json.load(f)["watchlist"]
+
+
+def job_pre_market_scan():
+    """07:00 — Pre-market scan and signal summary."""
+    logger.info("=== PRE-MARKET SCAN STARTING ===")
+    try:
+        from data.price_feed import get_historical_data
+        from signals.momentum import MomentumSignal
+        from signals.confidence_scorer import score_signal
+        from notifications.telegram import send_signal_summary
+
+        watchlist = load_watchlist()
+        signal_engine = MomentumSignal()
+        signals = []
+
+        for stock in watchlist:
+            ticker = stock["ticker"]
+            df = get_historical_data(ticker, period="1y")
+            if df is None or df.empty:
+                continue
+            from data.price_feed import get_latest_price
+            price = get_latest_price(ticker)
+            if not price:
+                continue
+            raw = signal_engine.evaluate(ticker, df)
+            final = score_signal(raw, df)
+            signals.append({
+                "ticker": ticker,
+                "direction": final.direction,
+                "confidence": final.confidence,
+                "price": price
+            })
+
+        send_signal_summary(signals)
+        logger.info(f"Pre-market scan complete — {len(signals)} signals evaluated")
+
+    except Exception as e:
+        logger.error(f"Pre-market scan failed: {e}")
+
+
+def job_monitor_positions():
+    """Every 15 mins during market hours — monitor positions and scan for entries."""
+    now = datetime.now()
+    hour = now.hour
+    minute = now.minute
+
+    # Only run during market hours 08:00 - 16:30 London time
+    if not ((8 <= hour < 16) or (hour == 16 and minute <= 30)):
+        logger.info(f"Outside market hours ({hour:02d}:{minute:02d}) - skipping position monitor")
+        return
+
+    logger.info("=== POSITION MONITOR RUNNING ===")
+    try:
+        from execution.order_manager import run_scan
+        from notifications.telegram import send_trade_alert
+
+        watchlist = load_watchlist()
+        actions = run_scan(watchlist, paper=True)
+
+        for action in actions:
+            if action["action"] == "BUY":
+                send_trade_alert(
+                    action="BUY",
+                    ticker=action["ticker"],
+                    price=action["price"],
+                    shares=action["shares"],
+                    amount=action["invest_amount"],
+                    confidence=action["confidence"]
+                )
+            elif action["action"] == "SELL":
+                send_trade_alert(
+                    action="SELL",
+                    ticker=action["ticker"],
+                    price=action["price"],
+                    shares=action["shares"],
+                    amount=action["sell_value"],
+                    pnl=action["pnl"],
+                    reason=action["reason"]
+                )
+            elif action["action"] == "KILL_SWITCH":
+                from notifications.telegram import send_kill_switch_alert
+                send_kill_switch_alert(action["reason"])
+
+    except Exception as e:
+        logger.error(f"Position monitor failed: {e}")
+
+def job_midday_scan():
+    """12:00 — Midday signal summary to Telegram."""
+    logger.info("=== MIDDAY SCAN STARTING ===")
+    try:
+        from data.price_feed import get_historical_data, get_latest_price
+        from signals.momentum import MomentumSignal
+        from signals.confidence_scorer import score_signal
+        from notifications.telegram import send_signal_summary
+        from execution.order_manager import run_scan
+
+        watchlist = load_watchlist()
+        signal_engine = MomentumSignal()
+        signals = []
+
+        for stock in watchlist:
+            ticker = stock["ticker"]
+            df = get_historical_data(ticker, period="1y")
+            if df is None or df.empty:
+                continue
+            price = get_latest_price(ticker)
+            if not price:
+                continue
+            raw = signal_engine.evaluate(ticker, df)
+            final = score_signal(raw, df)
+            signals.append({
+                "ticker": ticker,
+                "direction": final.direction,
+                "confidence": final.confidence,
+                "price": price
+            })
+
+        send_signal_summary(signals)
+
+        # Also run the trade scan
+        actions = run_scan(watchlist, paper=True)
+        logger.info(f"Midday scan complete — {len(signals)} signals evaluated")
+
+    except Exception as e:
+        logger.error(f"Midday scan failed: {e}")
+
+def job_afternoon_scan():
+    """16:00 — Afternoon scan for US market continuation."""
+    logger.info("=== AFTERNOON SCAN STARTING ===")
+    try:
+        from execution.order_manager import run_scan
+        from notifications.telegram import send_trade_alert
+
+        watchlist = load_watchlist()
+        actions = run_scan(watchlist, paper=True)
+
+        for action in actions:
+            if action["action"] in ("BUY", "SELL"):
+                send_trade_alert(
+                    action=action["action"],
+                    ticker=action["ticker"],
+                    price=action["price"],
+                    shares=action["shares"],
+                    amount=action.get("invest_amount") or action.get("sell_value"),
+                    confidence=action.get("confidence"),
+                    pnl=action.get("pnl"),
+                    reason=action.get("reason")
+                )
+
+        logger.info("Afternoon scan complete")
+
+    except Exception as e:
+        logger.error(f"Afternoon scan failed: {e}")
+
+
+def job_daily_report():
+    """17:00 — End of day performance report."""
+
+    # Prevent duplicate reports on same day
+    try:
+        from database.db import get_connection
+        today = str(datetime.now().date())
+        with get_connection() as conn:
+            already_sent = conn.execute(
+                """SELECT COUNT(*) as count FROM portfolio_snapshots 
+                   WHERE snapshot_date = ? 
+                   AND recorded_at > datetime('now', '-1 hour')""",
+                (today,)
+            ).fetchone()["count"]
+        if already_sent > 1:
+            logger.info("Daily report already sent today — skipping duplicate")
+            return
+    except Exception as e:
+        logger.warning(f"Duplicate check failed: {e}")
+
+    logger.info("=== DAILY REPORT GENERATING ===")
+    try:
+        from execution.order_manager import load_portfolio_state, get_portfolio_value
+        from database.queries import get_snapshots
+        from notifications.telegram import send_daily_report
+
+        state = load_portfolio_state()
+        # Refresh live prices before calculating portfolio value
+        from data.price_feed import get_latest_price
+        for ticker in state["positions"]:
+            get_latest_price(ticker)
+        portfolio_value = get_portfolio_value(state)
+        cash = state["cash"]
+        starting_capital = state["starting_capital"]
+        total_pnl = portfolio_value - starting_capital
+        open_positions = len(state["positions"])
+
+        # Daily P&L from snapshots
+        snapshots = get_snapshots(2)
+        if len(snapshots) >= 2:
+            daily_pnl = snapshots[0]["total_value"] - snapshots[1]["total_value"]
+        else:
+            daily_pnl = 0.0
+
+        # Count today's trades
+        from database.db import get_connection
+        today = str(datetime.now().date())
+        with get_connection() as conn:
+            trades_today = conn.execute(
+                """SELECT COUNT(*) as count FROM trades 
+                   WHERE date(opened_at) = ? 
+                   OR date(closed_at) = ?""",
+                (today, today)
+            ).fetchone()["count"]
+
+        send_daily_report(
+            portfolio_value=portfolio_value,
+            cash=cash,
+            total_pnl=total_pnl,
+            daily_pnl=daily_pnl,
+            open_positions=open_positions,
+            trades_today=trades_today,
+            positions=state["positions"]
+        )
+
+        logger.info("Daily report sent")
+
+    except Exception as e:
+        logger.error(f"Daily report failed: {e}")
+
+def job_heartbeat():
+    """Every hour — confirm system is alive."""
+    logger.info(f"Heartbeat | {datetime.now().strftime('%H:%M:%S')} | System running")
+
+
+def start():
+    """Register all jobs and start the scheduler."""
+
+    # Pre-market scan — 07:00 Monday to Friday
+    scheduler.add_job(
+        job_pre_market_scan,
+        CronTrigger(day_of_week="mon-fri", hour=7, minute=0),
+        id="pre_market_scan",
+        name="Pre-Market Scan"
+    )
+
+    # Position monitor — every 15 mins Monday to Friday
+    scheduler.add_job(
+        job_monitor_positions,
+        IntervalTrigger(minutes=15),
+        id="position_monitor",
+        name="Position Monitor"
+    )
+
+    # Midday scan — 12:00 Monday to Friday
+    scheduler.add_job(
+        job_midday_scan,
+        CronTrigger(day_of_week="mon-fri", hour=12, minute=0),
+        id="midday_scan",
+        name="Midday Scan"
+    )
+
+    # Afternoon scan — 16:00 Monday to Friday
+    scheduler.add_job(
+        job_afternoon_scan,
+        CronTrigger(day_of_week="mon-fri", hour=16, minute=0),
+        id="afternoon_scan",
+        name="Afternoon Scan"
+    )
+
+    # Daily report — 17:00 Monday to Friday
+    scheduler.add_job(
+        job_daily_report,
+        CronTrigger(day_of_week="mon-fri", hour=17, minute=0),
+        id="daily_report",
+        name="Daily Report"
+    )
+
+    # Hourly heartbeat
+    scheduler.add_job(
+        job_heartbeat,
+        IntervalTrigger(hours=1),
+        id="heartbeat",
+        name="Heartbeat"
+    )
+
+    logger.info("=" * 50)
+    logger.info("  TradeCore Scheduler Starting")
+    logger.info("  Jobs registered:")
+    logger.info("  07:00  Pre-market scan")
+    logger.info("  Every 15 mins  Position monitor")
+    logger.info("  12:00  Midday scan")
+    logger.info("  16:00  Afternoon scan")
+    logger.info("  17:00  Daily report")
+    logger.info("=" * 50)
+
+    try:
+        scheduler.start()
+    except KeyboardInterrupt:
+        logger.info("Scheduler stopped by user.")
+        scheduler.shutdown()
+
+
+if __name__ == "__main__":
+    start()
