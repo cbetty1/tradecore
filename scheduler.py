@@ -81,7 +81,7 @@ def job_monitor_positions():
         from notifications.telegram import send_trade_alert
 
         watchlist = load_watchlist()
-        actions = run_scan(watchlist, paper=True)
+        actions = run_scan(watchlist)
 
         for action in actions:
             if action["action"] == "BUY":
@@ -147,7 +147,7 @@ def job_midday_scan():
         send_signal_summary(signals)
 
         # Also run the trade scan
-        actions = run_scan(watchlist, paper=True)
+        actions = run_scan(watchlist)
         logger.info(f"Midday scan complete — {len(signals)} signals evaluated")
 
     except Exception as e:
@@ -164,7 +164,7 @@ def job_afternoon_scan():
         from notifications.telegram import send_trade_alert
 
         watchlist = load_watchlist()
-        actions = run_scan(watchlist, paper=True)
+        actions = run_scan(watchlist)
 
         for action in actions:
             if action["action"] in ("BUY", "SELL"):

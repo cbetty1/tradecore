@@ -23,6 +23,26 @@ logger = logging.getLogger(__name__)
 # Portfolio state file — persists between runs
 STATE_FILE = os.path.join(os.path.dirname(__file__), "..", "portfolio_state.json")
 
+# Load paper trading mode from risk_limits.json
+RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk_limits.json")
+
+
+def _is_paper_mode() -> bool:
+    """Read paper_trading_mode from risk_limits.json."""
+    try:
+        with open(RISK_LIMITS_FILE) as f:
+            limits = json.load(f)
+            return limits.get("paper_trading_mode", True)
+    except Exception as e:
+        logger.error(f"Failed to read risk_limits.json — defaulting to PAPER mode: {e}")
+        return True  # Always default to paper for safety
+
+
+def _get_broker():
+    """Get the T212 broker instance for live trading."""
+    from execution.t212_broker import T212Broker
+    return T212Broker()
+
 
 def load_portfolio_state() -> dict:
     """Load portfolio state from disk."""
@@ -35,8 +55,8 @@ def load_portfolio_state() -> dict:
 
     # Default starting state
     return {
-        "cash": 10000.0,
-        "starting_capital": 10000.0,
+        "cash": 300.0,
+        "starting_capital": 300.0,
         "positions": {},
         "last_updated": str(datetime.now())
     }
@@ -62,19 +82,25 @@ def get_portfolio_value(state: dict) -> float:
     return round(total, 2)
 
 
-def run_scan(watchlist: list, paper: bool = True) -> list:
+def run_scan(watchlist: list) -> list:
     """
     Run a full signal scan across the watchlist.
     Checks kill switch, evaluates signals, applies risk layer,
     and executes approved trades.
 
+    Reads paper_trading_mode from risk_limits.json.
+    When live: places real orders via T212 API.
+    When paper: updates portfolio_state.json only.
+
     Args:
         watchlist: List of ticker dicts from watchlist.json
-        paper:     True = paper trading, False = live
 
     Returns:
         List of actions taken this scan
     """
+    paper = _is_paper_mode()
+    mode_label = "PAPER" if paper else "LIVE"
+
     state = load_portfolio_state()
     portfolio_value = get_portfolio_value(state)
     cash = state["cash"]
@@ -86,7 +112,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
     _minute = _now.minute
     _in_market_hours = ((8 <= _hour < 16) or (_hour == 16 and _minute <= 30))
 
-    logger.info(f"Starting scan | Portfolio=£{portfolio_value:.2f} | Cash=£{cash:.2f}")
+    logger.info(f"Starting scan [{mode_label}] | Portfolio=£{portfolio_value:.2f} | Cash=£{cash:.2f}")
 
     # ── Kill Switch Check ─────────────────────────────────────────────────────
     kill = is_kill_switch_active(
@@ -98,7 +124,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
         logger.critical(f"KILL SWITCH ACTIVE — {kill['reason']} — No trades will be placed.")
         return [{"action": "KILL_SWITCH", "reason": kill["reason"]}]
 
-# ── Monitor Existing Positions ────────────────────────────────────────────
+    # ── Monitor Existing Positions ────────────────────────────────────────────
     for ticker, pos in list(state["positions"].items()):
         current_price = get_latest_price(ticker)
         if not current_price:
@@ -129,6 +155,28 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
             shares = pos["shares"]
             sell_value = shares * current_price
             pnl = sell_value - (shares * pos["entry_price"])
+
+            # ── LIVE: Place real sell order ────────────────────────────────
+            if not paper:
+                logger.info(f"LIVE SELL: {ticker} | {shares:.6f} shares")
+                broker = _get_broker()
+                order_result = broker.place_sell_order(ticker, shares)
+
+                if "error" in order_result:
+                    logger.error(f"LIVE SELL FAILED for {ticker}: {order_result['error']}")
+                    # Don't update state if the real order failed
+                    from notifications.telegram import send_message
+                    send_message(
+                        f"🚨 <b>LIVE SELL FAILED</b>\n\n"
+                        f"<b>Stock:</b> {ticker}\n"
+                        f"<b>Shares:</b> {shares:.6f}\n"
+                        f"<b>Error:</b> {order_result['error']}\n\n"
+                        f"⚡ TradeCore LIVE"
+                    )
+                    continue
+                else:
+                    logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
+
             # Update state
             cash += sell_value
             state["cash"] = cash
@@ -147,7 +195,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
                 "reason": exit_check["reason"]
             }
             actions.append(action)
-            logger.info(f"SELL {ticker} | {exit_check['reason']} | "
+            logger.info(f"SELL {ticker} [{mode_label}] | {exit_check['reason']} | "
                        f"P&L=£{pnl:.2f} ({exit_check['pnl_pct']:.1f}%)")
 
     # ── Scan For New Signals ──────────────────────────────────────────────────
@@ -163,11 +211,10 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
         if ticker in open_tickers:
             continue
 
-                # Skip if max positions reached
-        if len(open_tickers) >= MAX_OPEN_POSITIONS:
-            logger.info("Max positions reached — skipping new entries.")
+        # Skip if max positions reached — check BEFORE any processing
+        if len(state["positions"]) >= MAX_OPEN_POSITIONS:
+            logger.info(f"Max positions ({MAX_OPEN_POSITIONS}) reached — skipping new entries.")
             break
-
 
         # Skip if no cash
         if cash < CASH_FLOOR:
@@ -183,7 +230,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
         if not current_price:
             continue
 
-# Evaluate both signals
+        # Evaluate both signals
         raw_momentum = signal_engine.evaluate(ticker, df)
         raw_reversion = reversion_engine.evaluate(ticker, df)
 
@@ -213,7 +260,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
             logger.info(f"Earnings approaching for {ticker} — skipping entry")
             continue
 
-# Correlation check
+        # Correlation check
         corr_check = is_too_correlated(ticker, open_tickers)
         if corr_check["blocked"]:
             # Cash deployment override check
@@ -243,6 +290,27 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
         if not size["approved"]:
             logger.info(f"Position rejected: {size['reason']}")
             continue
+
+        # ── LIVE: Place real buy order ─────────────────────────────────────
+        if not paper:
+            logger.info(f"LIVE BUY: {ticker} | {size['shares']:.6f} shares | £{size['invest_amount']:.2f}")
+            broker = _get_broker()
+            order_result = broker.place_buy_order(ticker, size["shares"])
+
+            if "error" in order_result:
+                logger.error(f"LIVE BUY FAILED for {ticker}: {order_result['error']}")
+                from notifications.telegram import send_message
+                send_message(
+                    f"🚨 <b>LIVE BUY FAILED</b>\n\n"
+                    f"<b>Stock:</b> {ticker}\n"
+                    f"<b>Shares:</b> {size['shares']:.6f}\n"
+                    f"<b>Amount:</b> £{size['invest_amount']:.2f}\n"
+                    f"<b>Error:</b> {order_result['error']}\n\n"
+                    f"⚡ TradeCore LIVE"
+                )
+                continue
+            else:
+                logger.info(f"LIVE BUY CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
 
         # Log signal to database
         signal_id = insert_signal(
@@ -286,7 +354,7 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
             "confidence": final_signal.confidence
         }
         actions.append(action)
-        logger.info(f"BUY {ticker} | £{size['invest_amount']:.2f} | "
+        logger.info(f"BUY {ticker} [{mode_label}] | £{size['invest_amount']:.2f} | "
                    f"{size['shares']} shares @ £{current_price:.2f}")
 
     # ── Save State + Snapshot ─────────────────────────────────────────────────
@@ -300,6 +368,6 @@ def run_scan(watchlist: list, paper: bool = True) -> list:
         invested_value=portfolio_value - cash
     )
 
-    logger.info(f"Scan complete | {len(actions)} actions | "
+    logger.info(f"Scan complete [{mode_label}] | {len(actions)} actions | "
                f"Portfolio=£{portfolio_value:.2f}")
     return actions
