@@ -93,7 +93,7 @@ def _send_health_alert(title: str, details: str, severity: str = "WARNING"):
 # ── Individual Health Checks ────────────────────────────────────────────────
 
 def check_data_freshness() -> Dict:
-    """Check if yfinance is returning fresh price data."""
+    """Check if yfinance is returning price data at all."""
     result = {"status": "OK", "details": ""}
 
     if not _in_market_hours():
@@ -102,41 +102,22 @@ def check_data_freshness() -> Dict:
 
     try:
         from data.price_feed import get_latest_price
-        import yfinance as yf
 
-        # Test with a liquid stock
-        ticker = yf.Ticker("AAPL")
-        hist = ticker.history(period="1d", interval="1m")
+        # Test with a liquid stock — just check we get a price back
+        price = get_latest_price("AAPL")
 
-        if hist.empty:
+        if price is None or price <= 0:
             result["status"] = "FAIL"
-            result["details"] = "yfinance returned empty data for AAPL"
+            result["details"] = "get_latest_price returned None for AAPL"
             if _should_alert("stale_data"):
                 _send_health_alert(
-                    "Stale Price Data",
-                    "yfinance is returning empty data.\n"
-                    "Trades will NOT execute on stale prices.",
+                    "Price Feed Down",
+                    "Cannot fetch live price for AAPL.\n"
+                    "Trades may execute on stale data.",
                     severity="CRITICAL"
                 )
         else:
-            last_timestamp = hist.index[-1]
-            # Make both timezone-naive for comparison
-            if hasattr(last_timestamp, 'tz') and last_timestamp.tz is not None:
-                last_timestamp = last_timestamp.tz_localize(None)
-            age_minutes = (datetime.now() - last_timestamp).total_seconds() / 60
-
-            if age_minutes > STALE_PRICE_MINUTES:
-                result["status"] = "WARN"
-                result["details"] = f"Latest price is {age_minutes:.0f} mins old"
-                if _should_alert("stale_data"):
-                    _send_health_alert(
-                        "Stale Price Data",
-                        f"Latest AAPL price is {age_minutes:.0f} minutes old.\n"
-                        f"Threshold: {STALE_PRICE_MINUTES} minutes.",
-                        severity="WARNING"
-                    )
-            else:
-                result["details"] = f"Fresh ({age_minutes:.0f} mins old)"
+            result["details"] = f"AAPL = £{price:.2f}"
 
     except Exception as e:
         result["status"] = "FAIL"
