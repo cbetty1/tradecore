@@ -22,6 +22,9 @@ def load_watchlist() -> list:
 
 def job_pre_market_scan():
     """07:00 — Pre-market scan and signal summary."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("pre_market_scan")
+
     logger.info("=== PRE-MARKET SCAN STARTING ===")
     try:
         from data.price_feed import get_historical_data
@@ -60,6 +63,9 @@ def job_pre_market_scan():
 
 def job_monitor_positions():
     """Every 15 mins during market hours — monitor positions and scan for entries."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("position_monitor")
+
     now = datetime.now()
     hour = now.hour
     minute = now.minute
@@ -106,6 +112,9 @@ def job_monitor_positions():
 
 def job_midday_scan():
     """12:00 — Midday signal summary to Telegram."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("midday_scan")
+
     logger.info("=== MIDDAY SCAN STARTING ===")
     try:
         from data.price_feed import get_historical_data, get_latest_price
@@ -146,6 +155,9 @@ def job_midday_scan():
 
 def job_afternoon_scan():
     """16:00 — Afternoon scan for US market continuation."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("afternoon_scan")
+
     logger.info("=== AFTERNOON SCAN STARTING ===")
     try:
         from execution.order_manager import run_scan
@@ -175,6 +187,8 @@ def job_afternoon_scan():
 
 def job_daily_report():
     """17:00 — End of day performance report."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("daily_report")
 
     # Prevent duplicate reports on same day
     try:
@@ -243,9 +257,24 @@ def job_daily_report():
     except Exception as e:
         logger.error(f"Daily report failed: {e}")
 
+
 def job_heartbeat():
     """Every hour — confirm system is alive."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("heartbeat")
     logger.info(f"Heartbeat | {datetime.now().strftime('%H:%M:%S')} | System running")
+
+
+def job_health_check():
+    """Every 15 mins — silent health check, alerts only on failure."""
+    from monitoring.health_monitor import run_health_check
+    run_health_check()
+
+
+def job_daily_health_digest():
+    """21:00 — Daily health summary to Telegram."""
+    from monitoring.health_monitor import send_daily_digest
+    send_daily_digest()
 
 
 def start():
@@ -299,6 +328,23 @@ def start():
         name="Heartbeat"
     )
 
+    # ── Health Monitor Jobs ─────────────────────────────────────────────────
+    # Silent health check — every 15 mins (offset by 5 mins from position monitor)
+    scheduler.add_job(
+        job_health_check,
+        IntervalTrigger(minutes=15, start_date="2026-01-01 00:05:00"),
+        id="health_check",
+        name="Health Check"
+    )
+
+    # Daily health digest — 21:00 Monday to Friday
+    scheduler.add_job(
+        job_daily_health_digest,
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=0),
+        id="daily_health_digest",
+        name="Daily Health Digest"
+    )
+
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
     logger.info("  Jobs registered:")
@@ -307,6 +353,8 @@ def start():
     logger.info("  12:00  Midday scan")
     logger.info("  16:00  Afternoon scan")
     logger.info("  17:00  Daily report")
+    logger.info("  Every 15 mins  Health check (silent)")
+    logger.info("  21:00  Daily health digest")
     logger.info("=" * 50)
 
     try:
