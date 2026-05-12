@@ -231,7 +231,7 @@ def job_daily_report():
         else:
             daily_pnl = 0.0
 
-        # Count today's trades
+        # Count today's trades by type
         from database.db import get_connection
         today = str(datetime.now().date())
         with get_connection() as conn:
@@ -242,6 +242,18 @@ def job_daily_report():
                 (today, today)
             ).fetchone()["count"]
 
+            buys_today = conn.execute(
+                """SELECT COUNT(*) as count FROM trades 
+                   WHERE date(opened_at) = ? AND direction = 'BUY'""",
+                (today,)
+            ).fetchone()["count"]
+
+            sells_today = conn.execute(
+                """SELECT COUNT(*) as count FROM trades 
+                   WHERE date(closed_at) = ? AND direction = 'BUY' AND status = 'CLOSED'""",
+                (today,)
+            ).fetchone()["count"]
+
         send_daily_report(
             portfolio_value=portfolio_value,
             cash=cash,
@@ -249,7 +261,9 @@ def job_daily_report():
             daily_pnl=daily_pnl,
             open_positions=open_positions,
             trades_today=trades_today,
-            positions=state["positions"]
+            positions=state["positions"],
+            buys_today=buys_today,
+            sells_today=sells_today
         )
 
         logger.info("Daily report sent")
@@ -275,6 +289,107 @@ def job_daily_health_digest():
     """21:00 — Daily health summary to Telegram."""
     from monitoring.health_monitor import send_daily_digest
     send_daily_digest()
+
+
+def job_weekly_summary():
+    """Friday 17:30 — Weekly performance and withdrawal summary."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("weekly_summary")
+
+    logger.info("=== WEEKLY SUMMARY GENERATING ===")
+    try:
+        from execution.order_manager import load_portfolio_state, get_portfolio_value
+        from database.db import get_connection
+        from notifications.telegram import send_weekly_summary
+        from data.price_feed import get_latest_price
+
+        state = load_portfolio_state()
+        for ticker in state["positions"]:
+            get_latest_price(ticker)
+        portfolio_value = get_portfolio_value(state)
+        cash = state["cash"]
+        starting_capital = state["starting_capital"]
+        total_pnl = portfolio_value - starting_capital
+
+        # Week date range
+        today = datetime.now().date()
+        week_start = today - __import__('datetime').timedelta(days=today.weekday())
+
+        with get_connection() as conn:
+            # Weekly P&L from snapshots
+            week_snapshots = conn.execute(
+                """SELECT total_value FROM portfolio_snapshots
+                   WHERE snapshot_date >= ?
+                   ORDER BY snapshot_date ASC LIMIT 1""",
+                (str(week_start),)
+            ).fetchone()
+            week_start_value = week_snapshots["total_value"] if week_snapshots else starting_capital
+            weekly_pnl = portfolio_value - week_start_value
+
+            # Trade counts this week
+            buys_week = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                   WHERE date(opened_at) >= ? AND direction = 'BUY'""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+            sells_week = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED'""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+            # Win/loss stats on closed trades this week
+            closed = conn.execute(
+                """SELECT pnl FROM trades
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED' AND pnl IS NOT NULL""",
+                (str(week_start),)
+            ).fetchall()
+
+            wins = [r["pnl"] for r in closed if r["pnl"] > 0]
+            losses = [r["pnl"] for r in closed if r["pnl"] <= 0]
+            avg_win = sum(wins) / len(wins) if wins else 0.0
+            avg_loss = sum(losses) / len(losses) if losses else 0.0
+
+            # Signal counts this week
+            signals_fired = conn.execute(
+                """SELECT COUNT(*) as count FROM signals
+                   WHERE date(created_at) >= ?""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+            signals_acted = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                   WHERE date(opened_at) >= ?""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+        # Week number since go-live (12 May 2026)
+        go_live = __import__('datetime').date(2026, 5, 12)
+        week_number = max(1, ((today - go_live).days // 7) + 1)
+
+        send_weekly_summary(
+            portfolio_value=portfolio_value,
+            cash=cash,
+            starting_capital=starting_capital,
+            weekly_pnl=weekly_pnl,
+            total_pnl=total_pnl,
+            positions=state["positions"],
+            buys_week=buys_week,
+            sells_week=sells_week,
+            closed_wins=len(wins),
+            closed_losses=len(losses),
+            avg_win=avg_win,
+            avg_loss=avg_loss,
+            signals_fired=signals_fired,
+            signals_acted=signals_acted,
+            week_number=week_number
+        )
+
+        logger.info("Weekly summary sent")
+
+    except Exception as e:
+        logger.error(f"Weekly summary failed: {e}")
 
 
 def start():
@@ -345,6 +460,14 @@ def start():
         name="Daily Health Digest"
     )
 
+    # Weekly summary — Friday 17:30
+    scheduler.add_job(
+        job_weekly_summary,
+        CronTrigger(day_of_week="fri", hour=17, minute=30),
+        id="weekly_summary",
+        name="Weekly Summary"
+    )
+
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
     logger.info("  Jobs registered:")
@@ -355,6 +478,7 @@ def start():
     logger.info("  17:00  Daily report")
     logger.info("  Every 15 mins  Health check (silent)")
     logger.info("  21:00  Daily health digest")
+    logger.info("  Friday 17:30  Weekly summary")
     logger.info("=" * 50)
 
     try:

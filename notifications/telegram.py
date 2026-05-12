@@ -1,10 +1,26 @@
 import logging
+import json
+import os
 import requests
+from datetime import datetime, timedelta
 from config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+
+# Read trading mode from risk_limits.json
+RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk_limits.json")
+
+
+def _get_mode_label() -> str:
+    """Return 'Live' or 'Paper Mode' based on risk_limits.json."""
+    try:
+        with open(RISK_LIMITS_FILE) as f:
+            limits = json.load(f)
+            return "Live" if not limits.get("paper_trading_mode", True) else "Paper Mode"
+    except Exception:
+        return "Paper Mode"
 
 
 def send_message(message: str) -> bool:
@@ -55,6 +71,8 @@ def send_trade_alert(action: str, ticker: str, price: float,
         pnl:        Profit/loss (SELL only)
         reason:     Exit reason (SELL only)
     """
+    mode = _get_mode_label()
+
     if action == "BUY":
         emoji = "🟢"
         lines = [
@@ -66,7 +84,7 @@ def send_trade_alert(action: str, ticker: str, price: float,
             f"<b>Invested:</b> £{amount:.2f}",
             f"<b>Confidence:</b> {confidence:.1f}%" if confidence else "",
             f"",
-            f"⚡ TradeCore Paper Mode"
+            f"⚡ TradeCore {mode}"
         ]
     else:
         emoji = "🔴" if (pnl or 0) < 0 else "💰"
@@ -81,7 +99,7 @@ def send_trade_alert(action: str, ticker: str, price: float,
             f"<b>P&L:</b> {pnl_str}" if pnl is not None else "",
             f"<b>Reason:</b> {reason}" if reason else "",
             f"",
-            f"⚡ TradeCore Paper Mode"
+            f"⚡ TradeCore {mode}"
         ]
 
     message = "\n".join(l for l in lines if l is not None)
@@ -90,27 +108,40 @@ def send_trade_alert(action: str, ticker: str, price: float,
 def send_daily_report(portfolio_value: float, cash: float,
                       total_pnl: float, daily_pnl: float,
                       open_positions: int, trades_today: int,
-                      positions: dict = None) -> bool:
+                      positions: dict = None,
+                      buys_today: int = 0, sells_today: int = 0) -> bool:
     """Send the end of day performance report."""
+    mode = _get_mode_label()
+    today = datetime.now().strftime("%A %d %B %Y")
+
     pnl_emoji = "📈" if total_pnl >= 0 else "📉"
     daily_emoji = "▲" if daily_pnl >= 0 else "▼"
     pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
     daily_str = f"+£{daily_pnl:.2f}" if daily_pnl >= 0 else f"-£{abs(daily_pnl):.2f}"
 
+    # Calculate total P&L percentage
+    starting = portfolio_value - total_pnl
+    pnl_pct = (total_pnl / starting * 100) if starting > 0 else 0.0
+    pnl_pct_str = f"+{pnl_pct:.2f}%" if pnl_pct >= 0 else f"{pnl_pct:.2f}%"
+
+    # Max positions from settings
+    from config.settings import MAX_OPEN_POSITIONS
+
     message = (
         f"{pnl_emoji} <b>TRADECORE DAILY REPORT</b>\n"
         f"\n"
-        f"<b>Portfolio Value:</b> £{portfolio_value:,.2f}\n"
-        f"<b>Total P&L:</b> {pnl_str}\n"
+        f"<i>{today}</i>\n"
+        f"\n"
+        f"<b>Portfolio:</b> £{portfolio_value:,.2f}\n"
+        f"<b>Total P&L:</b> {pnl_str} ({pnl_pct_str})\n"
         f"<b>Today:</b> {daily_emoji} {daily_str}\n"
-        f"<b>Cash Available:</b> £{cash:,.2f}\n"
-        f"<b>Open Positions:</b> {open_positions}\n"
-        f"<b>Trades Today:</b> {trades_today}\n"
+        f"<b>Cash:</b> £{cash:,.2f}\n"
+        f"<b>Positions:</b> {open_positions}/{MAX_OPEN_POSITIONS}\n"
     )
 
     # Add position breakdown if provided
     if positions:
-        message += f"\n<b>Positions:</b>\n"
+        message += f"\n<b>Open positions:</b>\n"
         for ticker, pos in positions.items():
             from data.price_feed import get_latest_price
             current_price = get_latest_price(ticker)
@@ -118,10 +149,22 @@ def send_daily_report(portfolio_value: float, cash: float,
                 pnl = (current_price - pos["entry_price"]) * pos["shares"]
                 pnl_pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
                 arrow = "▲" if pnl >= 0 else "▼"
-                message += (f"  {arrow} {ticker} "
-                           f"£{pnl:+.2f} ({pnl_pct:+.1f}%)\n")
+                pnl_display = f"+£{pnl:.2f}" if pnl >= 0 else f"-£{abs(pnl):.2f}"
+                pnl_pct_display = f"+{pnl_pct:.1f}%" if pnl_pct >= 0 else f"{pnl_pct:.1f}%"
+                message += f"  {arrow} {ticker}  {pnl_display} ({pnl_pct_display})\n"
 
-    message += f"\n⚡ TradeCore Paper Mode"
+    # Trade count
+    if buys_today > 0 or sells_today > 0:
+        message += f"\n<b>Trades today:</b> {buys_today} buys | {sells_today} sells\n"
+    else:
+        message += f"\n<b>Trades today:</b> {trades_today}\n"
+
+    # Withdrawable to date — single line
+    withdrawal = _calc_withdrawal(total_pnl, portfolio_value)
+    if total_pnl > 0:
+        message += f"\n💰 <b>Withdrawable to date:</b> £{withdrawal['withdrawable']:,.2f}\n"
+
+    message += f"\n⚡ TradeCore {mode}"
     return send_message(message)
 
 def send_kill_switch_alert(reason: str) -> bool:
@@ -146,6 +189,8 @@ def send_signal_summary(signals: list) -> bool:
     Args:
         signals: List of dicts with ticker, direction, confidence
     """
+    mode = _get_mode_label()
+
     buy_signals = [s for s in signals if s["direction"] == "BUY"]
     sell_signals = [s for s in signals if s["direction"] == "SELL"]
     watch_signals = [s for s in signals if s["direction"] == "WATCH"]
@@ -181,5 +226,174 @@ def send_signal_summary(signals: list) -> bool:
             lines.append(f"  • {s['ticker']} — {s['confidence']:.0f}%")
         lines.append("")
 
-    lines.append(f"⚡ TradeCore Paper Mode")
+    lines.append(f"⚡ TradeCore {mode}")
+    return send_message("\n".join(lines))
+
+
+def _calc_withdrawal(total_pnl: float, portfolio_value: float) -> dict:
+    """
+    Calculate reinvest/withdraw split based on portfolio tiers.
+    Under £500:    80% reinvest / 20% withdraw
+    £500-£2,000:   60% reinvest / 40% withdraw
+    £2,000+:       50% reinvest / 50% withdraw
+    First withdrawal target: £1,000 withdrawable profit
+    """
+    if total_pnl <= 0:
+        return {"reinvest_pct": 80, "withdraw_pct": 20,
+                "reinvest": 0.0, "withdrawable": 0.0}
+
+    if portfolio_value >= 2000:
+        reinvest_pct, withdraw_pct = 50, 50
+    elif portfolio_value >= 500:
+        reinvest_pct, withdraw_pct = 60, 40
+    else:
+        reinvest_pct, withdraw_pct = 80, 20
+
+    reinvest = round(total_pnl * (reinvest_pct / 100), 2)
+    withdrawable = round(total_pnl * (withdraw_pct / 100), 2)
+
+    return {
+        "reinvest_pct": reinvest_pct,
+        "withdraw_pct": withdraw_pct,
+        "reinvest": reinvest,
+        "withdrawable": withdrawable,
+    }
+
+
+def send_weekly_summary(portfolio_value: float, cash: float,
+                        starting_capital: float,
+                        weekly_pnl: float, total_pnl: float,
+                        positions: dict = None,
+                        buys_week: int = 0, sells_week: int = 0,
+                        closed_wins: int = 0, closed_losses: int = 0,
+                        avg_win: float = 0.0, avg_loss: float = 0.0,
+                        signals_fired: int = 0, signals_acted: int = 0,
+                        week_number: int = 1) -> bool:
+    """
+    Send the weekly performance summary — Friday 17:30.
+
+    Args:
+        portfolio_value:  Current total portfolio value
+        cash:             Available cash
+        starting_capital: Original capital deployed
+        weekly_pnl:       P&L this week in GBP
+        total_pnl:        Total P&L since go-live in GBP
+        positions:        Current positions dict
+        buys_week:        Number of buy trades this week
+        sells_week:       Number of sell trades this week
+        closed_wins:      Number of winning closed trades this week
+        closed_losses:    Number of losing closed trades this week
+        avg_win:          Average winning trade P&L
+        avg_loss:         Average losing trade P&L
+        signals_fired:    Total signals generated this week
+        signals_acted:    Signals that resulted in trades
+        week_number:      Week number since go-live
+    """
+    mode = _get_mode_label()
+
+    # Date range
+    today = datetime.now()
+    week_start = today - timedelta(days=today.weekday())
+    date_range = f"{week_start.strftime('%d %B')} — {today.strftime('%d %B %Y')}"
+
+    # Emoji
+    emoji = "📊"
+    weekly_pnl_str = f"+£{weekly_pnl:.2f}" if weekly_pnl >= 0 else f"-£{abs(weekly_pnl):.2f}"
+    total_pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
+
+    weekly_pct = (weekly_pnl / (portfolio_value - weekly_pnl) * 100) if (portfolio_value - weekly_pnl) > 0 else 0.0
+    total_pct = (total_pnl / starting_capital * 100) if starting_capital > 0 else 0.0
+
+    weekly_pct_str = f"+{weekly_pct:.2f}%" if weekly_pct >= 0 else f"{weekly_pct:.2f}%"
+    total_pct_str = f"+{total_pct:.2f}%" if total_pct >= 0 else f"{total_pct:.2f}%"
+
+    lines = [
+        f"{emoji} <b>TRADECORE WEEKLY SUMMARY</b>",
+        f"",
+        f"<i>Week of {date_range}</i>",
+        f"",
+        f"<b>Portfolio:</b> £{portfolio_value:,.2f} ({weekly_pnl_str})",
+        f"<b>Weekly P&L:</b> {weekly_pnl_str} ({weekly_pct_str})",
+        f"<b>Total P&L:</b> {total_pnl_str} ({total_pct_str})",
+        f"<b>Cash:</b> £{cash:,.2f}",
+    ]
+
+    # Best / worst positions
+    if positions:
+        best_ticker = None
+        worst_ticker = None
+        best_pnl = -float('inf')
+        worst_pnl = float('inf')
+
+        for ticker, pos in positions.items():
+            from data.price_feed import get_latest_price
+            current_price = get_latest_price(ticker)
+            if current_price:
+                pos_pnl = (current_price - pos["entry_price"]) * pos["shares"]
+                pos_pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
+                if pos_pnl > best_pnl:
+                    best_pnl = pos_pnl
+                    best_pct = pos_pct
+                    best_ticker = ticker
+                if pos_pnl < worst_pnl:
+                    worst_pnl = pos_pnl
+                    worst_pct = pos_pct
+                    worst_ticker = ticker
+
+        if best_ticker:
+            best_str = f"+£{best_pnl:.2f}" if best_pnl >= 0 else f"-£{abs(best_pnl):.2f}"
+            best_pct_str = f"+{best_pct:.1f}%" if best_pct >= 0 else f"{best_pct:.1f}%"
+            lines.append(f"")
+            lines.append(f"<b>Best:</b>  ▲ {best_ticker}  {best_str} ({best_pct_str})")
+
+        if worst_ticker and worst_ticker != best_ticker:
+            worst_str = f"+£{worst_pnl:.2f}" if worst_pnl >= 0 else f"-£{abs(worst_pnl):.2f}"
+            worst_pct_str = f"+{worst_pct:.1f}%" if worst_pct >= 0 else f"{worst_pct:.1f}%"
+            lines.append(f"<b>Worst:</b> ▼ {worst_ticker}  {worst_str} ({worst_pct_str})")
+
+    # Trade stats
+    lines.append(f"")
+    lines.append(f"<b>Trades:</b> {buys_week} buys | {sells_week} sells")
+
+    total_closed = closed_wins + closed_losses
+    if total_closed > 0:
+        win_rate = (closed_wins / total_closed) * 100
+        lines.append(f"<b>Win rate:</b> {closed_wins}/{total_closed} closed trades ({win_rate:.0f}%)")
+        if avg_win > 0 or avg_loss > 0:
+            avg_win_str = f"+£{avg_win:.2f}" if avg_win >= 0 else f"-£{abs(avg_win):.2f}"
+            avg_loss_str = f"-£{abs(avg_loss):.2f}"
+            lines.append(f"<b>Avg win:</b> {avg_win_str} | <b>Avg loss:</b> {avg_loss_str}")
+
+    # Signal stats
+    if signals_fired > 0:
+        acted_pct = (signals_acted / signals_fired * 100) if signals_fired > 0 else 0
+        lines.append(f"")
+        lines.append(f"<b>Signals fired:</b> {signals_fired}")
+        lines.append(f"<b>Signals acted on:</b> {signals_acted} ({acted_pct:.0f}%)")
+
+    # Since go-live footer
+    invested = portfolio_value - cash
+    # Withdrawal breakdown
+    withdrawal = _calc_withdrawal(total_pnl, portfolio_value)
+    if total_pnl > 0:
+        target = 1000.0
+        progress_pct = min((withdrawal["withdrawable"] / target) * 100, 100)
+        lines.append(f"")
+        lines.append(f"━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"<b>Profit breakdown</b>")
+        lines.append(f"<b>Starting capital:</b> £{starting_capital:,.2f}")
+        lines.append(f"<b>Total profit:</b> {total_pnl_str}")
+        lines.append(f"<b>Reinvesting ({withdrawal['reinvest_pct']}%):</b> £{withdrawal['reinvest']:,.2f}")
+        lines.append(f"<b>Withdrawable ({withdrawal['withdraw_pct']}%):</b> £{withdrawal['withdrawable']:,.2f}")
+        lines.append(f"")
+        lines.append(f"<b>Total withdrawable to date:</b> £{withdrawal['withdrawable']:,.2f}")
+        lines.append(f"🎯 <b>Target: £1,000</b>  ({progress_pct:.1f}% there)")
+
+    # Since go-live footer
+    lines.append(f"")
+    lines.append(f"━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"<b>Since go-live:</b> {total_pnl_str} ({total_pct_str})")
+    lines.append(f"")
+    lines.append(f"⚡ TradeCore {mode} — Week {week_number}")
+
     return send_message("\n".join(lines))
