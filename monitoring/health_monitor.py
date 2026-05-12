@@ -23,7 +23,7 @@ import psutil
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from config.settings import DB_PATH, T212_API_KEY, T212_BASE_URL
+from config.settings import DB_PATH, T212_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def _send_health_alert(title: str, details: str, severity: str = "WARNING"):
 # ── Individual Health Checks ────────────────────────────────────────────────
 
 def check_data_freshness() -> Dict:
-    """Check if yfinance is returning price data at all."""
+    """Check if yfinance is returning fresh price data."""
     result = {"status": "OK", "details": ""}
 
     if not _in_market_hours():
@@ -102,22 +102,41 @@ def check_data_freshness() -> Dict:
 
     try:
         from data.price_feed import get_latest_price
+        import yfinance as yf
 
-        # Test with a liquid stock — just check we get a price back
-        price = get_latest_price("AAPL")
+        # Test with a liquid stock
+        ticker = yf.Ticker("AAPL")
+        hist = ticker.history(period="1d", interval="1m")
 
-        if price is None or price <= 0:
+        if hist.empty:
             result["status"] = "FAIL"
-            result["details"] = "get_latest_price returned None for AAPL"
+            result["details"] = "yfinance returned empty data for AAPL"
             if _should_alert("stale_data"):
                 _send_health_alert(
-                    "Price Feed Down",
-                    "Cannot fetch live price for AAPL.\n"
-                    "Trades may execute on stale data.",
+                    "Stale Price Data",
+                    "yfinance is returning empty data.\n"
+                    "Trades will NOT execute on stale prices.",
                     severity="CRITICAL"
                 )
         else:
-            result["details"] = f"AAPL = £{price:.2f}"
+            last_timestamp = hist.index[-1]
+            # Make both timezone-naive for comparison
+            if hasattr(last_timestamp, 'tz') and last_timestamp.tz is not None:
+                last_timestamp = last_timestamp.tz_localize(None)
+            age_minutes = (datetime.now() - last_timestamp).total_seconds() / 60
+
+            if age_minutes > STALE_PRICE_MINUTES:
+                result["status"] = "WARN"
+                result["details"] = f"Latest price is {age_minutes:.0f} mins old"
+                if _should_alert("stale_data"):
+                    _send_health_alert(
+                        "Stale Price Data",
+                        f"Latest AAPL price is {age_minutes:.0f} minutes old.\n"
+                        f"Threshold: {STALE_PRICE_MINUTES} minutes.",
+                        severity="WARNING"
+                    )
+            else:
+                result["details"] = f"Fresh ({age_minutes:.0f} mins old)"
 
     except Exception as e:
         result["status"] = "FAIL"
@@ -142,42 +161,21 @@ def check_t212_api() -> Dict:
         return result
 
     try:
-        import requests
-        response = requests.get(
-            f"{T212_BASE_URL}/api/v0/equity/account/cash",
-            headers={"Authorization": T212_API_KEY},
-            timeout=10
-        )
-        if response.status_code == 200:
+        from execution.t212_broker import T212Broker
+        broker = T212Broker()
+        if broker.test_connection():
             result["details"] = "Connected"
-        elif response.status_code == 401:
+        else:
             result["status"] = "FAIL"
             result["details"] = "Authentication failed"
             if _should_alert("t212_auth"):
                 _send_health_alert(
                     "T212 API Auth Failed",
-                    "API key may be invalid or expired.",
+                    "Cannot connect to Trading 212.\n"
+                    "Check API key and secret.",
                     severity="CRITICAL"
                 )
-        else:
-            result["status"] = "WARN"
-            result["details"] = f"HTTP {response.status_code}"
-            if _should_alert("t212_api"):
-                _send_health_alert(
-                    "T212 API Issue",
-                    f"Returned HTTP {response.status_code}",
-                    severity="WARNING"
-                )
 
-    except requests.exceptions.Timeout:
-        result["status"] = "FAIL"
-        result["details"] = "Connection timeout"
-        if _should_alert("t212_api"):
-            _send_health_alert(
-                "T212 API Timeout",
-                "Could not reach Trading 212 within 10 seconds.",
-                severity="WARNING"
-            )
     except Exception as e:
         result["status"] = "FAIL"
         result["details"] = str(e)
