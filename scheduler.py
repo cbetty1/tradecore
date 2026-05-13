@@ -71,7 +71,7 @@ def job_monitor_positions():
     minute = now.minute
 
     # Only run during market hours 08:00 - 16:30 London time
-    if not ((8 <= hour < 16) or (hour == 16 and minute <= 30)):
+    if not ((8 <= hour < 21)):
         logger.info(f"Outside market hours ({hour:02d}:{minute:02d}) - skipping position monitor")
         return
 
@@ -271,7 +271,29 @@ def job_daily_report():
     except Exception as e:
         logger.error(f"Daily report failed: {e}")
 
-
+def job_paper_scan():
+    """06:30 daily — Run the 600-stock paper scanner before live pre-market."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("paper_scan")
+ 
+    logger.info("=== PAPER SCAN STARTING ===")
+    try:
+        from execution.paper_scanner import run_paper_scan
+        from notifications.telegram import send_paper_scan_summary
+ 
+        result = run_paper_scan()
+        send_paper_scan_summary(result)
+ 
+        logger.info(f"Paper scan complete — {result.get('scanned', 0)} stocks scanned | "
+                   f"{result.get('signals_fired', 0)} signals | "
+                   f"{len(result.get('buys', []))} buys | "
+                   f"{len(result.get('sells', []))} sells")
+ 
+    except Exception as e:
+        logger.error(f"Paper scan failed: {e}")
+        from notifications.telegram import send_message
+        send_message(f"⚠️ <b>PAPER SCAN FAILED</b>\n\nError: {str(e)}\n\n📋 TradeCore Paper Scanner")
+ 
 def job_heartbeat():
     """Every hour — confirm system is alive."""
     from monitoring.health_monitor import record_job_run
@@ -468,6 +490,14 @@ def start():
         name="Weekly Summary"
     )
 
+      # Paper scanner — 06:30 daily Monday to Friday (before live pre-market)
+    # scheduler.add_job(
+    #     job_paper_scan,
+    #     CronTrigger(day_of_week="mon-fri", hour=6, minute=30),
+    #     id="paper_scan",
+    #     name="Paper Scanner (600 stocks)"
+    # )
+ 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
     logger.info("  Jobs registered:")
@@ -480,6 +510,8 @@ def start():
     logger.info("  21:00  Daily health digest")
     logger.info("  Friday 17:30  Weekly summary")
     logger.info("=" * 50)
+    
+       # logger.info("  06:30  Paper scanner (600 stocks)")
 
     try:
         scheduler.start()
