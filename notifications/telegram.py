@@ -397,3 +397,32 @@ def send_weekly_summary(portfolio_value: float, cash: float,
     lines.append(f"⚡ TradeCore {mode} — Week {week_number}")
 
     return send_message("\n".join(lines))
+
+def send_breakout_paper_alert(ticker: str, price: float,
+                              confidence: float, notes: str = "") -> bool:
+    """
+    Send a paper-only breakout signal alert to Telegram.
+    These are for data collection — breakout is being tested, not traded live.
+
+    Args:
+        ticker:     Stock ticker
+        price:      Current price
+        confidence: Breakout signal confidence
+        notes:      Signal notes (breakdown of scoring)
+    """
+    # Trim notes to keep message readable
+    short_notes = notes[:200] if notes else ""
+
+    message = (
+        f"📋 <b>PAPER BREAKOUT SIGNAL</b>\n"
+        f"\n"
+        f"<b>Stock:</b> {ticker}\n"
+        f"<b>Price:</b> £{price:.2f}\n"
+        f"<b>Confidence:</b> {confidence:.1f}%\n"
+        f"<b>Signal:</b> {short_notes}\n"
+        f"\n"
+        f"<i>Paper only — not traded. Collecting data for review.</i>\n"
+        f"\n"
+        f"📋 TradeCore PAPER BREAKOUT"
+    )
+    return send_message(message)

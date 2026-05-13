@@ -26,6 +26,11 @@ STATE_FILE = os.path.join(os.path.dirname(__file__), "..", "portfolio_state.json
 # Load paper trading mode from risk_limits.json
 RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk_limits.json")
 
+# ── Breakout paper testing flag ───────────────────────────────────────────────
+# When True: breakout signals are evaluated and logged to DB + Telegram
+# but NEVER trigger real trades. Set to False once proven.
+BREAKOUT_PAPER_ONLY = True
+
 
 def _is_paper_mode() -> bool:
     """Read paper_trading_mode from risk_limits.json."""
@@ -91,6 +96,10 @@ def run_scan(watchlist: list) -> list:
     Reads paper_trading_mode from risk_limits.json.
     When live: places real orders via T212 API.
     When paper: updates portfolio_state.json only.
+
+    Breakout signals are evaluated in parallel but only logged
+    to database and Telegram — never trigger real trades while
+    BREAKOUT_PAPER_ONLY is True.
 
     Args:
         watchlist: List of ticker dicts from watchlist.json
@@ -201,8 +210,10 @@ def run_scan(watchlist: list) -> list:
     # ── Scan For New Signals ──────────────────────────────────────────────────
     open_tickers = list(state["positions"].keys())
     from signals.mean_reversion import MeanReversionSignal
+    from signals.breakout import BreakoutSignal
     signal_engine = MomentumSignal()
     reversion_engine = MeanReversionSignal()
+    breakout_engine = BreakoutSignal()
 
     for stock in watchlist:
         ticker = stock["ticker"]
@@ -230,11 +241,38 @@ def run_scan(watchlist: list) -> list:
         if not current_price:
             continue
 
-        # Evaluate both signals
+        # ── Evaluate all three signals ────────────────────────────────────
         raw_momentum = signal_engine.evaluate(ticker, df)
         raw_reversion = reversion_engine.evaluate(ticker, df)
+        raw_breakout = breakout_engine.evaluate(ticker, df)
 
-        # Use highest confidence signal
+        # ── Breakout paper logging ────────────────────────────────────────
+        # Always evaluate breakout and log it, regardless of whether it wins
+        if BREAKOUT_PAPER_ONLY and raw_breakout.direction == "BUY" and raw_breakout.confidence >= DEFAULT_CONFIDENCE_THRESHOLD:
+            logger.info(f"📋 PAPER BREAKOUT: {ticker} | {raw_breakout.direction} | "
+                       f"Conf={raw_breakout.confidence:.1f}%")
+
+            # Log to database as paper signal
+            insert_signal(
+                ticker=ticker,
+                signal_type="BREAKOUT_PAPER",
+                direction=raw_breakout.direction,
+                confidence=raw_breakout.confidence,
+                price=current_price,
+                regime=None,
+                notes=f"[PAPER] {raw_breakout.notes}"
+            )
+
+            # Send Telegram alert
+            from notifications.telegram import send_breakout_paper_alert
+            send_breakout_paper_alert(
+                ticker=ticker,
+                price=current_price,
+                confidence=raw_breakout.confidence,
+                notes=raw_breakout.notes
+            )
+
+        # ── Pick best live signal (momentum or mean reversion only) ───────
         if raw_reversion.confidence > raw_momentum.confidence:
             raw_signal = raw_reversion
             logger.info(f"{ticker} — using mean reversion signal "
@@ -242,6 +280,14 @@ def run_scan(watchlist: list) -> list:
                        f"momentum {raw_momentum.confidence:.1f}%)")
         else:
             raw_signal = raw_momentum
+
+        # If breakout is NOT paper-only and it beats both, use it for live
+        if not BREAKOUT_PAPER_ONLY and raw_breakout.confidence > raw_signal.confidence:
+            raw_signal = raw_breakout
+            logger.info(f"{ticker} — using breakout signal "
+                       f"({raw_breakout.confidence:.1f}% vs "
+                       f"momentum {raw_momentum.confidence:.1f}% / "
+                       f"reversion {raw_reversion.confidence:.1f}%)")
 
         final_signal = score_signal(raw_signal, df)
 
@@ -315,7 +361,7 @@ def run_scan(watchlist: list) -> list:
         # Log signal to database
         signal_id = insert_signal(
             ticker=ticker,
-            signal_type="MOMENTUM",
+            signal_type=final_signal.signal_type,
             direction="BUY",
             confidence=final_signal.confidence,
             price=current_price,
