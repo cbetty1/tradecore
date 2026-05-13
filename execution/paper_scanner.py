@@ -241,7 +241,7 @@ def run_paper_scan() -> dict:
             # Correlation check
             corr_check = is_too_correlated(
                 ticker, open_tickers,
-                limit=correlation_limit
+                correlation_limit=correlation_limit
             )
             if corr_check["blocked"]:
                 cash_pct = (cash / portfolio_value) * 100

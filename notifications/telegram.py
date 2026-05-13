@@ -426,3 +426,84 @@ def send_breakout_paper_alert(ticker: str, price: float,
         f"📋 TradeCore PAPER BREAKOUT"
     )
     return send_message(message)
+
+def send_paper_scan_summary(result: dict) -> bool:
+    """
+    Send the daily 600-stock paper scanner summary.
+    Fires at 06:30 before the live pre-market scan.
+
+    Args:
+        result: Dict returned by run_paper_scan()
+    """
+    if not result:
+        return send_message("📋 <b>PAPER SCANNER</b>\n\nScan failed — no results returned.\n\n📋 TradeCore Paper Scanner")
+
+    portfolio_value = result.get("portfolio_value", 0)
+    cash = result.get("cash", 0)
+    starting_capital = result.get("starting_capital", 10000)
+    total_pnl = result.get("total_pnl", 0)
+    total_pnl_pct = result.get("total_pnl_pct", 0)
+    open_positions = result.get("open_positions", 0)
+    max_positions = result.get("max_positions", 20)
+    scanned = result.get("scanned", 0)
+    signals_fired = result.get("signals_fired", 0)
+    buys = result.get("buys", [])
+    sells = result.get("sells", [])
+    top_signals = result.get("top_signals", [])
+    errors = result.get("errors", 0)
+
+    pnl_emoji = "📈" if total_pnl >= 0 else "📉"
+    pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
+    pnl_pct_str = f"+{total_pnl_pct:.2f}%" if total_pnl_pct >= 0 else f"{total_pnl_pct:.2f}%"
+
+    lines = [
+        f"📋 <b>PAPER SCANNER — DAILY SUMMARY</b>",
+        f"<i>{datetime.now().strftime('%A %d %B %Y')}</i>",
+        f"",
+        f"<b>Paper Portfolio:</b> £{portfolio_value:,.2f}",
+        f"<b>Total P&L:</b> {pnl_str} ({pnl_pct_str}) {pnl_emoji}",
+        f"<b>Cash:</b> £{cash:,.2f}",
+        f"<b>Positions:</b> {open_positions}/{max_positions}",
+        f"",
+        f"<b>Scan stats:</b> {scanned} stocks | {signals_fired} signals fired",
+    ]
+
+    # New buys
+    if buys:
+        lines.append(f"")
+        lines.append(f"🟢 <b>New paper positions ({len(buys)}):</b>")
+        for b in buys:
+            lines.append(
+                f"  • {b['ticker']} @ £{b['price']:.2f} | "
+                f"£{b['amount']:.2f} | {b['confidence']:.0f}% | {b['signal_type']}"
+            )
+
+    # Closed positions
+    if sells:
+        lines.append(f"")
+        lines.append(f"🔴 <b>Closed paper positions ({len(sells)}):</b>")
+        for s in sells:
+            pnl_sign = "+" if s["pnl"] >= 0 else ""
+            lines.append(
+                f"  • {s['ticker']} | {pnl_sign}£{s['pnl']:.2f} | {s['reason']}"
+            )
+
+    # Top 5 signals
+    if top_signals:
+        lines.append(f"")
+        lines.append(f"💡 <b>Top 5 signals today:</b>")
+        for s in top_signals:
+            bar = "█" * int(s["confidence"] / 10)
+            lines.append(
+                f"  • {s['ticker']} — {s['confidence']:.0f}%  {bar}  [{s['signal_type']}]"
+            )
+
+    if errors > 0:
+        lines.append(f"")
+        lines.append(f"⚠️ {errors} tickers skipped due to data errors")
+
+    lines.append(f"")
+    lines.append(f"📋 TradeCore Paper Scanner — £10,000 simulated")
+
+    return send_message("\n".join(lines))
+

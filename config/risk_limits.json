@@ -1,6 +1,6 @@
 {
   "max_drawdown_pct": 8.0,
-  "max_position_pct": 15.0,
+  "max_position_pct": 5.0,
   "max_open_positions": 20,
   "min_confidence_threshold": 65.0,
   "cash_floor_gbp": 10.0,
