@@ -3,7 +3,7 @@ import json
 import os
 
 RISK_LIMITS_FILE = os.path.join(
-    os.path.dirname(__file__), "..", "config", "risk_limits.json"
+    os.path.dirname(__file__), "..","..", "config", "risk_limits.json"
 )
 
 
