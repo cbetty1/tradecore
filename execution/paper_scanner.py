@@ -254,7 +254,8 @@ def run_paper_scan() -> dict:
                 portfolio_value=portfolio_value,
                 cash_available=cash,
                 current_price=current_price,
-                confidence=final_signal.confidence
+                confidence=final_signal.confidence,
+                max_position_pct=limits["max_position_pct"] / 100
             )
 
             if not size["approved"]:
