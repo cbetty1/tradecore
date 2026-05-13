@@ -119,7 +119,7 @@ def run_scan(watchlist: list) -> list:
     _now = datetime.now()
     _hour = _now.hour
     _minute = _now.minute
-    _in_market_hours = ((8 <= _hour < 16) or (_hour == 16 and _minute <= 30))
+    _in_market_hours = ((8 <= _hour < 21))
 
     logger.info(f"Starting scan [{mode_label}] | Portfolio=£{portfolio_value:.2f} | Cash=£{cash:.2f}")
 
