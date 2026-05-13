@@ -11,9 +11,10 @@ Usage:
 
 import json
 import os
+import time
 import logging
 from datetime import datetime
-from execution.t212_broker import T212Broker, yf_to_t212
+from execution.t212_broker import T212Broker
 from data.price_feed import get_latest_price
 from database.queries import get_open_trades
 
@@ -64,6 +65,7 @@ def sync_from_t212():
         logger.error("Cannot connect to T212 — aborting sync")
         return
 
+    time.sleep(1)
     # Get live positions from T212
     t212_positions = broker.get_open_positions()
     if not t212_positions:
@@ -72,6 +74,7 @@ def sync_from_t212():
 
     logger.info(f"T212 returned {len(t212_positions)} open positions")
 
+    time.sleep(1)
     # Get account cash
     balance = broker.get_account_balance()
     cash = balance.get("free", 0.0)
@@ -96,15 +99,23 @@ def sync_from_t212():
     # Rebuild positions from T212 data
     new_positions = {}
     for pos in t212_positions:
-        t212_ticker = pos.get("ticker", "")
+        t212_ticker = pos.get("instrument", {}).get("ticker", "")
         yf_ticker = reverse_map.get(t212_ticker)
 
         if not yf_ticker:
-            logger.warning(f"No yfinance mapping for T212 ticker: {t212_ticker} — skipping")
+            logger.info(f"Skipping {t212_ticker} — no yfinance mapping")
             continue
 
-        quantity = float(pos.get("quantity", 0))
-        avg_price = float(pos.get("averagePrice", 0))
+        quantity = float(pos.get("quantityAvailableForTrading", 0))
+
+        if quantity <= 0:
+            logger.info(f"Skipping {yf_ticker} — no available quantity (in pie or zero)")
+            continue
+
+        avg_price = float(pos.get("averagePricePaid", 0))
+        if avg_price <= 0:
+            logger.warning(f"Skipping {yf_ticker} — invalid average price")
+            continue
         current_price = get_latest_price(yf_ticker) or avg_price
         invested = quantity * avg_price
 
@@ -126,7 +137,7 @@ def sync_from_t212():
         }
 
         pnl = (current_price - avg_price) * quantity
-        pnl_pct = ((current_price - avg_price) / avg_price) * 100
+        pnl_pct = ((current_price - avg_price) / avg_price) * 100 if avg_price > 0 else 0.0
         logger.info(f"  {yf_ticker}: {quantity:.4f} shares @ £{avg_price:.2f} | "
                    f"Current £{current_price:.2f} | P&L: £{pnl:.2f} ({pnl_pct:+.1f}%)")
 
