@@ -19,7 +19,7 @@ app.layout = html.Div([
                 "fontSize": "28px",
                 "margin": "0"
             }),
-            html.P("Algorithmic Trading System — Paper Mode", style={
+            html.P("Algorithmic Trading System", style={
                 "color": "#888",
                 "margin": "0",
                 "fontSize": "13px"
@@ -76,6 +76,13 @@ app.layout = html.Div([
                                 "color": "#00ff88",
                                 "borderTop": "2px solid #00ff88",
                                 "border": "none"}),
+        dcc.Tab(label="⚙️ Settings", value="settings",
+                style={"backgroundColor": "#111", "color": "#888",
+                       "border": "none"},
+                selected_style={"backgroundColor": "#0a0a0a",
+                                "color": "#00ff88",
+                                "borderTop": "2px solid #00ff88",
+                                "border": "none"}),
     ], style={"backgroundColor": "#111", "border": "none"}),
 
     # ── Tab Content ───────────────────────────────────────────────────────────
@@ -100,7 +107,7 @@ app.layout = html.Div([
     Input("refresh", "n_intervals")
 )
 def render_tab(tab, _):
-    from dashboard.layouts import portfolio, signals, risk, backtest, wallet
+    from dashboard.layouts import portfolio, signals, risk, backtest, wallet, settings
     timestamp = f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
 
     if tab == "portfolio":
@@ -113,6 +120,8 @@ def render_tab(tab, _):
         return backtest.layout(), timestamp
     elif tab == "wallet":
         return wallet.layout(), timestamp
+    elif tab == "settings":
+        return settings.layout(), timestamp
 
     return html.Div("Tab not found"), timestamp
 
