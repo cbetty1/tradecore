@@ -19,14 +19,15 @@ class BacktestEngine:
                  confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
                  stop_loss_pct: float = 5.0,
                  take_profit_pct: float = 15.0,
-                 paper: bool = True):
+                 paper: bool = True,
+                 signal=None):
 
         self.starting_capital = starting_capital
         self.confidence_threshold = confidence_threshold
         self.stop_loss_pct = stop_loss_pct
         self.take_profit_pct = take_profit_pct
         self.paper = paper
-        self.signal = MomentumSignal()
+        self.signal = signal or MomentumSignal()
 
     def run(self, ticker: str, period: str = "2y") -> dict:
         """
@@ -39,7 +40,7 @@ class BacktestEngine:
         Returns:
             Dict containing all trades and performance metrics
         """
-        logger.info(f"Starting backtest for {ticker} | period={period}")
+        logger.info(f"Starting backtest for {ticker} | period={period} | signal={self.signal.name}")
 
         df = get_historical_data(ticker, period=period, interval="1d")
         if df is None or df.empty:
@@ -62,7 +63,7 @@ class BacktestEngine:
             raw = self.signal.evaluate(ticker, window)
 
             # Skip scoring on backtest to avoid live API calls for every bar
-            # Use raw momentum score only for speed
+            # Use raw signal score only for speed
             confidence = raw.confidence
             direction = raw.direction
 
