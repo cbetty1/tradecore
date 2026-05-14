@@ -9,3 +9,4 @@ data/cache/
 *.egg-info/
 dist/
 build/portfolio_state.json
+portfolio_state.json
