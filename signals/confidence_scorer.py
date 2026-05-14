@@ -17,7 +17,7 @@ def get_market_regime() -> str:
         'CHOPPY'  - Mixed signals
     """
     try:
-        spy = yf.download("SPY", period="1y", interval="1d", progress=False, auto_adjust=True)
+        spy = yf.download("SPY", period="2y", interval="1d", progress=False, auto_adjust=True)
         vix = yf.download("^VIX", period="5d", interval="1d", progress=False, auto_adjust=True)
 
         if spy.empty or vix.empty:
@@ -102,7 +102,7 @@ def get_sector_adjustment(ticker: str) -> float:
     try:
         etf_data = yf.download(sector_etf, period="1mo", interval="1d",
                                progress=False, auto_adjust=True)
-        spy_data = yf.download("SPY", period="1mo", interval="1d",
+        spy_data = yf.download("SPY", period="3mo", interval="1d",
                                progress=False, auto_adjust=True)
 
         if etf_data.empty or spy_data.empty:
