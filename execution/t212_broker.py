@@ -67,11 +67,12 @@ class T212Broker(BrokerBase):
         return f"Basic {encoded}"
 
     def _headers(self) -> dict:
-        """Standard request headers."""
+        credentials = f"{T212_API_KEY}:{T212_API_SECRET}"
+        encoded = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
         return {
-            "Authorization": self._auth_header,
-            "Content-Type": "application/json"
-        }
+        "Authorization": f"Basic {encoded}",
+        "Content-Type": "application/json"
+    }
 
     def _request(self, method: str, endpoint: str,
                  data: dict = None, timeout: int = 15) -> Optional[Dict]:

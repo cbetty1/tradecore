@@ -25,7 +25,7 @@ def _load_from_cache(ticker: str) -> pd.DataFrame | None:
         df = pd.read_parquet(path)
         # If cache was written today, use it
         modified = datetime.fromtimestamp(os.path.getmtime(path))
-        if modified.date() == datetime.today().date():
+        if datetime.now() - modified < timedelta(hours=4):
             logger.debug(f"Cache hit for {ticker}")
             return df
         return None

@@ -18,7 +18,7 @@ if not ((8 <= _hour < 16) or (_hour == 16 and _minute <= 30)):
 with open('config/watchlist.json') as f:
     watchlist = json.load(f)['watchlist']
 
-actions = run_scan(watchlist, paper=True)
+actions = run_scan(watchlist)
 
 print('\n--- ACTIONS TAKEN ---')
 for a in actions:
