@@ -1,7 +1,7 @@
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from data.price_feed import get_latest_price, get_historical_data
 from signals.momentum import MomentumSignal
 from signals.mean_reversion import MeanReversionSignal
@@ -99,15 +99,144 @@ def get_paper_portfolio_value(state: dict) -> float:
     return round(total, 2)
 
 
+def get_paper_summary() -> dict:
+    """
+    Build a weekly summary of paper scanner performance.
+    Called by job_weekly_paper_summary() in scheduler.py every Friday 18:00.
+
+    Returns:
+        Dict consumed by send_weekly_paper_summary() in telegram.py
+    """
+    state = load_paper_state()
+    limits = load_paper_limits()
+
+    portfolio_value = get_paper_portfolio_value(state)
+    cash = state["cash"]
+    starting_capital = state["starting_capital"]
+    total_pnl = portfolio_value - starting_capital
+    total_pnl_pct = (total_pnl / starting_capital * 100) if starting_capital > 0 else 0.0
+
+    # Week date range
+    today = datetime.now().date()
+    week_start = today - timedelta(days=today.weekday())
+
+    # Week P&L — compare to value at start of this week via closed trades
+    # Approximate: total_pnl minus last week's total_pnl
+    # Use the paper snapshot table if available, else use total
+    try:
+        from database.db import get_connection
+        with get_connection() as conn:
+            # Weekly buys/sells from paper trades
+            buys_week = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                   WHERE date(opened_at) >= ? AND direction = 'BUY' AND paper = 1""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+            sells_week = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED' AND paper = 1""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+            # Win/loss on closed paper trades this week
+            closed = conn.execute(
+                """SELECT ticker, pnl FROM trades
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED'
+                   AND paper = 1 AND pnl IS NOT NULL""",
+                (str(week_start),)
+            ).fetchall()
+
+            wins = [r["pnl"] for r in closed if r["pnl"] > 0]
+            losses = [r["pnl"] for r in closed if r["pnl"] <= 0]
+            avg_win = sum(wins) / len(wins) if wins else 0.0
+            avg_loss = sum(losses) / len(losses) if losses else 0.0
+
+            # Total stocks scanned this week (unique tickers in paper signals)
+            total_scanned = conn.execute(
+                """SELECT COUNT(DISTINCT ticker) as count FROM signals
+                   WHERE date(created_at) >= ?
+                   AND signal_type LIKE 'PAPER_%'""",
+                (str(week_start),)
+            ).fetchone()["count"]
+
+    except Exception as e:
+        logger.error(f"Paper summary DB query failed: {e}")
+        buys_week = 0
+        sells_week = 0
+        wins = []
+        losses = []
+        avg_win = 0.0
+        avg_loss = 0.0
+        total_scanned = 0
+
+    # Top and worst open positions by current P&L
+    top_performers = []
+    worst_performers = []
+
+    for ticker, pos in state["positions"].items():
+        current_price = get_latest_price(ticker)
+        if current_price:
+            pnl = (current_price - pos["entry_price"]) * pos["shares"]
+            pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
+            top_performers.append({"ticker": ticker, "pnl": pnl, "pct": pct})
+            worst_performers.append({"ticker": ticker, "pnl": pnl, "pct": pct})
+
+    top_performers = sorted(top_performers, key=lambda x: x["pnl"], reverse=True)[:3]
+    worst_performers = sorted(worst_performers, key=lambda x: x["pnl"])[:3]
+
+    # Week number since paper scanner launched (18 May 2026)
+    paper_launch = datetime.date(2026, 5, 18) if hasattr(datetime, 'date') else today
+    try:
+        import datetime as dt
+        paper_launch = dt.date(2026, 5, 18)
+        week_number = max(1, ((today - paper_launch).days // 7) + 1)
+    except Exception:
+        week_number = 1
+
+    # Weekly P&L approximation — use total for now, will improve as snapshots accumulate
+    weekly_pnl = total_pnl  # Will diverge meaningfully after week 2+
+    weekly_pnl_pct = total_pnl_pct
+
+    return {
+        "portfolio_value": portfolio_value,
+        "cash": cash,
+        "starting_capital": starting_capital,
+        "total_pnl": total_pnl,
+        "total_pnl_pct": total_pnl_pct,
+        "weekly_pnl": weekly_pnl,
+        "weekly_pnl_pct": weekly_pnl_pct,
+        "open_positions": len(state["positions"]),
+        "max_positions": limits.get("max_open_positions", 20),
+        "total_buys_week": buys_week,
+        "total_sells_week": sells_week,
+        "wins": len(wins),
+        "losses": len(losses),
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
+        "top_performers": top_performers,
+        "worst_performers": worst_performers,
+        "total_scanned": total_scanned,
+        "week_number": week_number,
+    }
+
+
 def run_paper_scan() -> dict:
     """
-    Run the daily 600-stock paper scanner.
+    Run the 600-stock paper scanner.
+    Fires at 14:45 (US open) and 18:00 (mid US session) Monday to Friday.
     Completely independent from live trading — separate state,
     separate config, separate watchlist.
 
     Returns:
         Dict with scan results for Telegram summary
     """
+    # Weekend gate — no point scanning with stale prices
+    from execution.order_manager import is_trading_day
+    if not is_trading_day():
+        logger.info("Weekend — paper scan skipped (markets closed)")
+        return {}
+
     limits = load_paper_limits()
     state = load_paper_state()
     watchlist = load_paper_watchlist()
@@ -302,7 +431,7 @@ def run_paper_scan() -> dict:
             })
 
             logger.info(f"PAPER BUY: {ticker} | £{size['invest_amount']:.2f} | "
-                       f"Conf={final_signal.confidence:.1f}% | {final_signal.signal_type}")
+                        f"Conf={final_signal.confidence:.1f}% | {final_signal.signal_type}")
 
         except Exception as e:
             errors += 1
@@ -325,7 +454,7 @@ def run_paper_scan() -> dict:
 
     logger.info(f"=== PAPER SCAN COMPLETE ===")
     logger.info(f"Scanned: {scanned} | Signals: {signals_fired} | "
-               f"Buys: {len(buys)} | Sells: {len(sells)} | Errors: {errors}")
+                f"Buys: {len(buys)} | Sells: {len(sells)} | Errors: {errors}")
     logger.info(f"Paper Portfolio: £{portfolio_value:.2f} | P&L: £{total_pnl:.2f} ({total_pnl_pct:.2f}%)")
 
     # Sort top signals by confidence for summary

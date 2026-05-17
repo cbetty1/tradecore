@@ -1,9 +1,9 @@
 import logging
 import json
 import os
-import requests
 from datetime import datetime, timedelta
 from config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,7 @@ def send_trade_alert(action: str, ticker: str, price: float,
     message = "\n".join(l for l in lines if l is not None)
     return send_message(message)
 
+
 def send_daily_report(portfolio_value: float, cash: float,
                       total_pnl: float, daily_pnl: float,
                       open_positions: int, trades_today: int,
@@ -124,8 +125,14 @@ def send_daily_report(portfolio_value: float, cash: float,
     pnl_pct = (total_pnl / starting * 100) if starting > 0 else 0.0
     pnl_pct_str = f"+{pnl_pct:.2f}%" if pnl_pct >= 0 else f"{pnl_pct:.2f}%"
 
-    # Max positions from settings
-    from config.settings import MAX_OPEN_POSITIONS
+    # Max positions from settings — read fresh from config to avoid stale import
+    try:
+        with open(RISK_LIMITS_FILE) as f:
+            _limits = json.load(f)
+        max_pos = _limits.get("max_open_positions", 5)
+    except Exception:
+        from config.settings import MAX_OPEN_POSITIONS
+        max_pos = MAX_OPEN_POSITIONS
 
     message = (
         f"{pnl_emoji} <b>TRADECORE DAILY REPORT</b>\n"
@@ -136,7 +143,7 @@ def send_daily_report(portfolio_value: float, cash: float,
         f"<b>Total P&L:</b> {pnl_str} ({pnl_pct_str})\n"
         f"<b>Today:</b> {daily_emoji} {daily_str}\n"
         f"<b>Cash:</b> £{cash:,.2f}\n"
-        f"<b>Positions:</b> {open_positions}/{MAX_OPEN_POSITIONS}\n"
+        f"<b>Positions:</b> {open_positions}/{max_pos}\n"
     )
 
     # Add position breakdown if provided
@@ -159,13 +166,14 @@ def send_daily_report(portfolio_value: float, cash: float,
     else:
         message += f"\n<b>Trades today:</b> {trades_today}\n"
 
-    # Withdrawable to date — single line
+    # Withdrawable to date — single shared calculation
     withdrawal = _calc_withdrawal(total_pnl, portfolio_value)
     if total_pnl > 0:
         message += f"\n💰 <b>Withdrawable to date:</b> £{withdrawal['withdrawable']:,.2f}\n"
 
     message += f"\n⚡ TradeCore {mode}"
     return send_message(message)
+
 
 def send_kill_switch_alert(reason: str) -> bool:
     """Send an urgent kill switch notification."""
@@ -203,26 +211,20 @@ def send_signal_summary(signals: list) -> bool:
 
     if buy_signals:
         lines.append("🟢 <b>BUY Signals:</b>")
-        for s in sorted(buy_signals,
-                       key=lambda x: x['confidence'],
-                       reverse=True):
+        for s in sorted(buy_signals, key=lambda x: x['confidence'], reverse=True):
             bar = "█" * int(s['confidence'] / 10)
             lines.append(f"  • {s['ticker']} — {s['confidence']:.0f}%  {bar}")
         lines.append("")
 
     if sell_signals:
         lines.append("🔴 <b>SELL Signals:</b>")
-        for s in sorted(sell_signals,
-                       key=lambda x: x['confidence'],
-                       reverse=True):
+        for s in sorted(sell_signals, key=lambda x: x['confidence'], reverse=True):
             lines.append(f"  • {s['ticker']} — {s['confidence']:.0f}%")
         lines.append("")
 
     if watch_signals:
         lines.append("🟡 <b>Watching:</b>")
-        for s in sorted(watch_signals,
-                       key=lambda x: x['confidence'],
-                       reverse=True):
+        for s in sorted(watch_signals, key=lambda x: x['confidence'], reverse=True):
             lines.append(f"  • {s['ticker']} — {s['confidence']:.0f}%")
         lines.append("")
 
@@ -237,6 +239,8 @@ def _calc_withdrawal(total_pnl: float, portfolio_value: float) -> dict:
     £500-£2,000:   60% reinvest / 40% withdraw
     £2,000+:       50% reinvest / 50% withdraw
     First withdrawal target: £1,000 withdrawable profit
+
+    Single source of truth — both daily report and weekly summary use this.
     """
     if total_pnl <= 0:
         return {"reinvest_pct": 80, "withdraw_pct": 20,
@@ -270,34 +274,14 @@ def send_weekly_summary(portfolio_value: float, cash: float,
                         signals_fired: int = 0, signals_acted: int = 0,
                         week_number: int = 1) -> bool:
     """
-    Send the weekly performance summary — Friday 17:30.
-
-    Args:
-        portfolio_value:  Current total portfolio value
-        cash:             Available cash
-        starting_capital: Original capital deployed
-        weekly_pnl:       P&L this week in GBP
-        total_pnl:        Total P&L since go-live in GBP
-        positions:        Current positions dict
-        buys_week:        Number of buy trades this week
-        sells_week:       Number of sell trades this week
-        closed_wins:      Number of winning closed trades this week
-        closed_losses:    Number of losing closed trades this week
-        avg_win:          Average winning trade P&L
-        avg_loss:         Average losing trade P&L
-        signals_fired:    Total signals generated this week
-        signals_acted:    Signals that resulted in trades
-        week_number:      Week number since go-live
+    Send the weekly live performance summary — Friday 17:30.
     """
     mode = _get_mode_label()
 
-    # Date range
     today = datetime.now()
     week_start = today - timedelta(days=today.weekday())
     date_range = f"{week_start.strftime('%d %B')} — {today.strftime('%d %B %Y')}"
 
-    # Emoji
-    emoji = "📊"
     weekly_pnl_str = f"+£{weekly_pnl:.2f}" if weekly_pnl >= 0 else f"-£{abs(weekly_pnl):.2f}"
     total_pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
 
@@ -308,7 +292,7 @@ def send_weekly_summary(portfolio_value: float, cash: float,
     total_pct_str = f"+{total_pct:.2f}%" if total_pct >= 0 else f"{total_pct:.2f}%"
 
     lines = [
-        f"{emoji} <b>TRADECORE WEEKLY SUMMARY</b>",
+        f"📊 <b>TRADECORE WEEKLY SUMMARY</b>",
         f"",
         f"<i>Week of {date_range}</i>",
         f"",
@@ -324,6 +308,8 @@ def send_weekly_summary(portfolio_value: float, cash: float,
         worst_ticker = None
         best_pnl = -float('inf')
         worst_pnl = float('inf')
+        best_pct = 0.0
+        worst_pct = 0.0
 
         for ticker, pos in positions.items():
             from data.price_feed import get_latest_price
@@ -371,9 +357,7 @@ def send_weekly_summary(portfolio_value: float, cash: float,
         lines.append(f"<b>Signals fired:</b> {signals_fired}")
         lines.append(f"<b>Signals acted on:</b> {signals_acted} ({acted_pct:.0f}%)")
 
-    # Since go-live footer
-    invested = portfolio_value - cash
-    # Withdrawal breakdown
+    # Withdrawal breakdown — uses shared _calc_withdrawal for consistency
     withdrawal = _calc_withdrawal(total_pnl, portfolio_value)
     if total_pnl > 0:
         target = 1000.0
@@ -389,7 +373,6 @@ def send_weekly_summary(portfolio_value: float, cash: float,
         lines.append(f"<b>Total withdrawable to date:</b> £{withdrawal['withdrawable']:,.2f}")
         lines.append(f"🎯 <b>Target: £1,000</b>  ({progress_pct:.1f}% there)")
 
-    # Since go-live footer
     lines.append(f"")
     lines.append(f"━━━━━━━━━━━━━━━━━━━━")
     lines.append(f"<b>Since go-live:</b> {total_pnl_str} ({total_pct_str})")
@@ -398,19 +381,13 @@ def send_weekly_summary(portfolio_value: float, cash: float,
 
     return send_message("\n".join(lines))
 
+
 def send_breakout_paper_alert(ticker: str, price: float,
                               confidence: float, notes: str = "") -> bool:
     """
     Send a paper-only breakout signal alert to Telegram.
     These are for data collection — breakout is being tested, not traded live.
-
-    Args:
-        ticker:     Stock ticker
-        price:      Current price
-        confidence: Breakout signal confidence
-        notes:      Signal notes (breakdown of scoring)
     """
-    # Trim notes to keep message readable
     short_notes = notes[:200] if notes else ""
 
     message = (
@@ -427,16 +404,21 @@ def send_breakout_paper_alert(ticker: str, price: float,
     )
     return send_message(message)
 
+
 def send_paper_scan_summary(result: dict) -> bool:
     """
-    Send the daily 600-stock paper scanner summary.
-    Fires at 06:30 before the live pre-market scan.
+    Send the 600-stock paper scanner summary.
+    Fires at 14:45 (US open) and 18:00 (mid US session) Monday to Friday.
 
     Args:
         result: Dict returned by run_paper_scan()
     """
     if not result:
-        return send_message("📋 <b>PAPER SCANNER</b>\n\nScan failed — no results returned.\n\n📋 TradeCore Paper Scanner")
+        return send_message(
+            "📋 <b>PAPER SCANNER</b>\n\n"
+            "Scan failed — no results returned.\n\n"
+            "📋 TradeCore Paper Scanner"
+        )
 
     portfolio_value = result.get("portfolio_value", 0)
     cash = result.get("cash", 0)
@@ -456,8 +438,10 @@ def send_paper_scan_summary(result: dict) -> bool:
     pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
     pnl_pct_str = f"+{total_pnl_pct:.2f}%" if total_pnl_pct >= 0 else f"{total_pnl_pct:.2f}%"
 
+    scan_time = datetime.now().strftime("%H:%M")
+
     lines = [
-        f"📋 <b>PAPER SCANNER — DAILY SUMMARY</b>",
+        f"📋 <b>PAPER SCANNER — {scan_time} SCAN</b>",
         f"<i>{datetime.now().strftime('%A %d %B %Y')}</i>",
         f"",
         f"<b>Paper Portfolio:</b> £{portfolio_value:,.2f}",
@@ -488,10 +472,10 @@ def send_paper_scan_summary(result: dict) -> bool:
                 f"  • {s['ticker']} | {pnl_sign}£{s['pnl']:.2f} | {s['reason']}"
             )
 
-    # Top 5 signals
+    # Top signals
     if top_signals:
         lines.append(f"")
-        lines.append(f"💡 <b>Top 5 signals today:</b>")
+        lines.append(f"💡 <b>Top signals this scan:</b>")
         for s in top_signals:
             bar = "█" * int(s["confidence"] / 10)
             lines.append(
@@ -503,7 +487,104 @@ def send_paper_scan_summary(result: dict) -> bool:
         lines.append(f"⚠️ {errors} tickers skipped due to data errors")
 
     lines.append(f"")
-    lines.append(f"📋 TradeCore Paper Scanner — £10,000 simulated")
+    lines.append(f"📋 TradeCore Paper Scanner — £{starting_capital:,.0f} simulated")
 
     return send_message("\n".join(lines))
 
+
+def send_weekly_paper_summary(summary: dict) -> bool:
+    """
+    Send the weekly 600-stock paper scanner performance summary.
+    Fires Friday 18:00 — after the 17:30 live weekly summary.
+
+    Args:
+        summary: Dict returned by get_paper_summary() in paper_scanner.py
+    """
+    if not summary:
+        return send_message(
+            "📋 <b>WEEKLY PAPER SUMMARY</b>\n\n"
+            "No data available — scanner may not have run this week.\n\n"
+            "📋 TradeCore Paper Scanner"
+        )
+
+    portfolio_value = summary.get("portfolio_value", 0)
+    cash = summary.get("cash", 0)
+    starting_capital = summary.get("starting_capital", 10000)
+    total_pnl = summary.get("total_pnl", 0)
+    total_pnl_pct = summary.get("total_pnl_pct", 0)
+    weekly_pnl = summary.get("weekly_pnl", 0)
+    weekly_pnl_pct = summary.get("weekly_pnl_pct", 0)
+    open_positions = summary.get("open_positions", 0)
+    max_positions = summary.get("max_positions", 20)
+    total_buys = summary.get("total_buys_week", 0)
+    total_sells = summary.get("total_sells_week", 0)
+    wins = summary.get("wins", 0)
+    losses = summary.get("losses", 0)
+    avg_win = summary.get("avg_win", 0.0)
+    avg_loss = summary.get("avg_loss", 0.0)
+    top_performers = summary.get("top_performers", [])
+    worst_performers = summary.get("worst_performers", [])
+    total_scanned = summary.get("total_scanned", 0)
+    week_number = summary.get("week_number", 1)
+
+    today = datetime.now()
+    week_start = today - timedelta(days=today.weekday())
+    date_range = f"{week_start.strftime('%d %B')} — {today.strftime('%d %B %Y')}"
+
+    pnl_emoji = "📈" if total_pnl >= 0 else "📉"
+    total_pnl_str = f"+£{total_pnl:.2f}" if total_pnl >= 0 else f"-£{abs(total_pnl):.2f}"
+    weekly_pnl_str = f"+£{weekly_pnl:.2f}" if weekly_pnl >= 0 else f"-£{abs(weekly_pnl):.2f}"
+    total_pct_str = f"+{total_pnl_pct:.2f}%" if total_pnl_pct >= 0 else f"{total_pnl_pct:.2f}%"
+    weekly_pct_str = f"+{weekly_pnl_pct:.2f}%" if weekly_pnl_pct >= 0 else f"{weekly_pnl_pct:.2f}%"
+
+    lines = [
+        f"📋 <b>WEEKLY PAPER SUMMARY — 600 STOCKS</b>",
+        f"",
+        f"<i>Week of {date_range}</i>",
+        f"",
+        f"<b>Paper Portfolio:</b> £{portfolio_value:,.2f} {pnl_emoji}",
+        f"<b>Weekly P&L:</b> {weekly_pnl_str} ({weekly_pct_str})",
+        f"<b>Total P&L:</b> {total_pnl_str} ({total_pct_str})",
+        f"<b>Cash:</b> £{cash:,.2f}",
+        f"<b>Positions:</b> {open_positions}/{max_positions}",
+        f"",
+        f"<b>Week activity:</b> {total_buys} buys | {total_sells} sells",
+        f"<b>Universe scanned:</b> {total_scanned} stocks",
+    ]
+
+    # Win/loss stats
+    total_closed = wins + losses
+    if total_closed > 0:
+        win_rate = (wins / total_closed) * 100
+        lines.append(f"")
+        lines.append(f"<b>Closed trades:</b> {total_closed} ({win_rate:.0f}% win rate)")
+        if avg_win > 0 or avg_loss < 0:
+            avg_win_str = f"+£{avg_win:.2f}"
+            avg_loss_str = f"-£{abs(avg_loss):.2f}"
+            lines.append(f"<b>Avg win:</b> {avg_win_str} | <b>Avg loss:</b> {avg_loss_str}")
+
+    # Top performers this week
+    if top_performers:
+        lines.append(f"")
+        lines.append(f"🏆 <b>Top performers:</b>")
+        for p in top_performers[:3]:
+            pnl_str_p = f"+£{p['pnl']:.2f}" if p['pnl'] >= 0 else f"-£{abs(p['pnl']):.2f}"
+            pct_str_p = f"+{p['pct']:.1f}%" if p['pct'] >= 0 else f"{p['pct']:.1f}%"
+            lines.append(f"  ▲ {p['ticker']}  {pnl_str_p} ({pct_str_p})")
+
+    # Worst performers this week
+    if worst_performers:
+        lines.append(f"")
+        lines.append(f"📉 <b>Worst performers:</b>")
+        for p in worst_performers[:3]:
+            pnl_str_p = f"+£{p['pnl']:.2f}" if p['pnl'] >= 0 else f"-£{abs(p['pnl']):.2f}"
+            pct_str_p = f"+{p['pct']:.1f}%" if p['pct'] >= 0 else f"{p['pct']:.1f}%"
+            lines.append(f"  ▼ {p['ticker']}  {pnl_str_p} ({pct_str_p})")
+
+    lines.append(f"")
+    lines.append(f"━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"<i>Paper only — no real money. Data collected for strategy review.</i>")
+    lines.append(f"")
+    lines.append(f"📋 TradeCore Paper Scanner — Week {week_number}")
+
+    return send_message("\n".join(lines))

@@ -32,6 +32,11 @@ RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk
 BREAKOUT_PAPER_ONLY = True
 
 
+def is_trading_day() -> bool:
+    """Return True only on weekdays (Mon–Fri). Prevents weekend order attempts."""
+    return datetime.now().weekday() < 5  # 0=Monday … 4=Friday
+
+
 def _is_paper_mode() -> bool:
     """Read paper_trading_mode from risk_limits.json."""
     try:
@@ -107,6 +112,12 @@ def run_scan(watchlist: list) -> list:
     Returns:
         List of actions taken this scan
     """
+    # ── Weekend Gate ──────────────────────────────────────────────────────────
+    # Markets are closed Sat/Sun — skip entirely to prevent failed order alerts
+    if not is_trading_day():
+        logger.info("Weekend — run_scan skipped (markets closed)")
+        return []
+
     paper = _is_paper_mode()
     mode_label = "PAPER" if paper else "LIVE"
 
