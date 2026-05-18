@@ -320,11 +320,11 @@ def run_paper_scan() -> dict:
 
         if len(state["positions"]) >= max_positions:
             logger.info(f"Paper max positions ({max_positions}) reached")
-            break
+            continue
 
         if cash < cash_floor:
             logger.info("Paper cash floor reached")
-            break
+            continue 
 
         try:
             df = get_historical_data(ticker, period="1y")
