@@ -10,3 +10,4 @@ data/cache/
 dist/
 build/portfolio_state.json
 portfolio_state.json
+risk_limits.json
