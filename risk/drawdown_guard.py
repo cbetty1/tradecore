@@ -8,27 +8,30 @@ logger = logging.getLogger(__name__)
 
 def get_current_drawdown(starting_capital: float) -> float:
     """
-    Calculate current drawdown from peak portfolio value.
+    Calculate current drawdown from starting capital.
+    Using starting capital as baseline prevents partially-deployed
+    portfolios from triggering false drawdown alerts after selling positions.
     Returns:
         Current drawdown as a percentage (positive number)
     """
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                "SELECT total_value FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 30"
+                "SELECT total_value FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 1"
             ).fetchall()
 
         if not rows:
             return 0.0
 
-        values = [r[0] for r in rows]
-        peak = max(values)
-        current = values[0]
+        current = rows[0][0]
 
-        if peak <= 0:
+        if starting_capital <= 0:
             return 0.0
 
-        drawdown = ((peak - current) / peak) * 100
+        if current >= starting_capital:
+            return 0.0  # We're above starting capital — no drawdown
+
+        drawdown = ((starting_capital - current) / starting_capital) * 100
         return round(drawdown, 2)
 
     except Exception as e:
