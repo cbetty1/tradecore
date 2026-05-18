@@ -314,17 +314,13 @@ def run_paper_scan() -> dict:
 
     for stock in watchlist:
         ticker = stock["ticker"]
-
+        scanned += 1
         if ticker in open_tickers:
             continue
-
         if len(state["positions"]) >= max_positions:
-            logger.info(f"Paper max positions ({max_positions}) reached")
             continue
-
         if cash < cash_floor:
-            logger.info("Paper cash floor reached")
-            continue 
+            continue
 
         try:
             df = get_historical_data(ticker, period="1y")
