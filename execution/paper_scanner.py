@@ -120,13 +120,9 @@ def get_paper_summary() -> dict:
     today = datetime.now().date()
     week_start = today - timedelta(days=today.weekday())
 
-    # Week P&L — compare to value at start of this week via closed trades
-    # Approximate: total_pnl minus last week's total_pnl
-    # Use the paper snapshot table if available, else use total
     try:
         from database.db import get_connection
         with get_connection() as conn:
-            # Weekly buys/sells from paper trades
             buys_week = conn.execute(
                 """SELECT COUNT(*) as count FROM trades
                    WHERE date(opened_at) >= ? AND direction = 'BUY' AND paper = 1""",
@@ -139,7 +135,6 @@ def get_paper_summary() -> dict:
                 (str(week_start),)
             ).fetchone()["count"]
 
-            # Win/loss on closed paper trades this week
             closed = conn.execute(
                 """SELECT ticker, pnl FROM trades
                    WHERE date(closed_at) >= ? AND status = 'CLOSED'
@@ -152,7 +147,6 @@ def get_paper_summary() -> dict:
             avg_win = sum(wins) / len(wins) if wins else 0.0
             avg_loss = sum(losses) / len(losses) if losses else 0.0
 
-            # Total stocks scanned this week (unique tickers in paper signals)
             total_scanned = conn.execute(
                 """SELECT COUNT(DISTINCT ticker) as count FROM signals
                    WHERE date(created_at) >= ?
@@ -170,7 +164,6 @@ def get_paper_summary() -> dict:
         avg_loss = 0.0
         total_scanned = 0
 
-    # Top and worst open positions by current P&L
     top_performers = []
     worst_performers = []
 
@@ -185,8 +178,6 @@ def get_paper_summary() -> dict:
     top_performers = sorted(top_performers, key=lambda x: x["pnl"], reverse=True)[:3]
     worst_performers = sorted(worst_performers, key=lambda x: x["pnl"])[:3]
 
-    # Week number since paper scanner launched (18 May 2026)
-    paper_launch = datetime.date(2026, 5, 18) if hasattr(datetime, 'date') else today
     try:
         import datetime as dt
         paper_launch = dt.date(2026, 5, 18)
@@ -194,8 +185,7 @@ def get_paper_summary() -> dict:
     except Exception:
         week_number = 1
 
-    # Weekly P&L approximation — use total for now, will improve as snapshots accumulate
-    weekly_pnl = total_pnl  # Will diverge meaningfully after week 2+
+    weekly_pnl = total_pnl
     weekly_pnl_pct = total_pnl_pct
 
     return {
@@ -227,6 +217,13 @@ def run_paper_scan() -> dict:
     Fires at 14:45 (US open) and 18:00 (mid US session) Monday to Friday.
     Completely independent from live trading — separate state,
     separate config, separate watchlist.
+
+    Signal queue approach:
+        Pass 1 — scan ALL stocks, collect every actionable signal
+        Pass 2 — sort by confidence (highest first), fill available slots
+
+    This ensures the best signals always get priority regardless of
+    their position in the watchlist.
 
     Returns:
         Dict with scan results for Telegram summary
@@ -307,19 +304,18 @@ def run_paper_scan() -> dict:
             })
             logger.info(f"PAPER SELL: {ticker} | {exit_check['reason']} | P&L=£{pnl:.2f}")
 
-    # ── Scan for new paper entries ─────────────────────────────────────────
+    # ── Pass 1: Scan ALL stocks, build ranked signal queue ─────────────────
     open_tickers = list(state["positions"].keys())
     scanned = 0
     signals_fired = 0
+    signal_queue = []  # All actionable signals, ranked by confidence in Pass 2
 
     for stock in watchlist:
         ticker = stock["ticker"]
         scanned += 1
+
+        # Skip already held positions
         if ticker in open_tickers:
-            continue
-        if len(state["positions"]) >= max_positions:
-            continue
-        if cash < cash_floor:
             continue
 
         try:
@@ -331,29 +327,16 @@ def run_paper_scan() -> dict:
             if not current_price:
                 continue
 
-            scanned += 1
-
             # Evaluate all three signals
             raw_momentum = momentum_engine.evaluate(ticker, df)
             raw_reversion = reversion_engine.evaluate(ticker, df)
             raw_breakout = breakout_engine.evaluate(ticker, df)
 
-            # Pick highest confidence signal
+            # Pick highest confidence raw signal
             best_raw = max(
                 [raw_momentum, raw_reversion, raw_breakout],
                 key=lambda s: s.confidence
             )
-
-            # Track all actionable signals for daily summary
-            if best_raw.confidence >= min_confidence and best_raw.direction == "BUY":
-                signals_fired += 1
-                top_signals.append({
-                    "ticker": ticker,
-                    "signal_type": best_raw.signal_type,
-                    "confidence": best_raw.confidence,
-                    "price": current_price,
-                    "direction": best_raw.direction
-                })
 
             # Apply confidence scorer
             final_signal = score_signal(best_raw, df)
@@ -363,76 +346,119 @@ def run_paper_scan() -> dict:
             if final_signal.direction != "BUY":
                 continue
 
-            # Correlation check
-            corr_check = is_too_correlated(
-                ticker, open_tickers,
-                correlation_limit=correlation_limit
-            )
-            if corr_check["blocked"]:
-                cash_pct = (cash / portfolio_value) * 100
-                if not (cash_pct >= limits["cash_deployment_threshold_pct"] and
-                        final_signal.confidence >= limits["cash_deployment_min_confidence"]):
-                    continue
+            signals_fired += 1
 
-            # Position sizing
-            size = calculate_position_size(
-                portfolio_value=portfolio_value,
-                cash_available=cash,
-                current_price=current_price,
-                confidence=final_signal.confidence,
-                max_position_pct=limits["max_position_pct"] / 100
-            )
-
-            if not size["approved"]:
-                continue
-
-            # Log to database as paper trade
-            signal_id = insert_signal(
-                ticker=ticker,
-                signal_type=f"PAPER_{final_signal.signal_type}",
-                direction="BUY",
-                confidence=final_signal.confidence,
-                price=current_price,
-                regime=final_signal.regime,
-                notes=f"[PAPER SCANNER] {final_signal.notes}"
-            )
-
-            trade_id = insert_trade(
-                signal_id=signal_id,
-                ticker=ticker,
-                direction="BUY",
-                quantity=size["shares"],
-                price=current_price,
-                paper=1
-            )
-
-            # Update paper state
-            cash -= size["invest_amount"]
-            state["cash"] = cash
-            state["positions"][ticker] = {
-                "shares": size["shares"],
-                "entry_price": current_price,
-                "highest_price": current_price,
-                "trade_id": trade_id,
-                "invested": size["invest_amount"]
-            }
-            open_tickers.append(ticker)
-
-            buys.append({
+            # Add to signal queue for ranked entry in Pass 2
+            signal_queue.append({
                 "ticker": ticker,
-                "price": current_price,
-                "amount": size["invest_amount"],
+                "signal": final_signal,
+                "df": df,
+                "current_price": current_price,
                 "confidence": final_signal.confidence,
                 "signal_type": final_signal.signal_type
             })
 
-            logger.info(f"PAPER BUY: {ticker} | £{size['invest_amount']:.2f} | "
-                        f"Conf={final_signal.confidence:.1f}% | {final_signal.signal_type}")
+            # Track for top signals summary
+            top_signals.append({
+                "ticker": ticker,
+                "signal_type": final_signal.signal_type,
+                "confidence": final_signal.confidence,
+                "price": current_price,
+                "direction": final_signal.direction
+            })
 
         except Exception as e:
             errors += 1
             logger.warning(f"Paper scan error for {ticker}: {e}")
             continue
+
+    # ── Pass 2: Sort by confidence, fill available slots ──────────────────
+    signal_queue_sorted = sorted(signal_queue, key=lambda x: x["confidence"], reverse=True)
+    slots_available = max_positions - len(state["positions"])
+
+    logger.info(f"Pass 1 complete — Scanned: {scanned} | Signals: {signals_fired} | "
+                f"Slots available: {slots_available}")
+
+    for item in signal_queue_sorted:
+        ticker = item["ticker"]
+        final_signal = item["signal"]
+        current_price = item["current_price"]
+
+        # Stop if no slots or no cash
+        if len(state["positions"]) >= max_positions:
+            break
+        if cash < cash_floor:
+            break
+
+        # Skip if already bought this scan
+        if ticker in open_tickers:
+            continue
+
+        # Correlation check
+        corr_check = is_too_correlated(
+            ticker, open_tickers,
+            correlation_limit=correlation_limit
+        )
+        if corr_check["blocked"]:
+            cash_pct = (cash / portfolio_value) * 100
+            if not (cash_pct >= limits["cash_deployment_threshold_pct"] and
+                    final_signal.confidence >= limits["cash_deployment_min_confidence"]):
+                continue
+
+        # Position sizing
+        size = calculate_position_size(
+            portfolio_value=portfolio_value,
+            cash_available=cash,
+            current_price=current_price,
+            confidence=final_signal.confidence,
+            max_position_pct=limits["max_position_pct"] / 100
+        )
+
+        if not size["approved"]:
+            continue
+
+        # Log to database as paper trade
+        signal_id = insert_signal(
+            ticker=ticker,
+            signal_type=f"PAPER_{final_signal.signal_type}",
+            direction="BUY",
+            confidence=final_signal.confidence,
+            price=current_price,
+            regime=final_signal.regime,
+            notes=f"[PAPER SCANNER] {final_signal.notes}"
+        )
+
+        trade_id = insert_trade(
+            signal_id=signal_id,
+            ticker=ticker,
+            direction="BUY",
+            quantity=size["shares"],
+            price=current_price,
+            paper=1
+        )
+
+        # Update paper state
+        cash -= size["invest_amount"]
+        state["cash"] = cash
+        state["positions"][ticker] = {
+            "shares": size["shares"],
+            "entry_price": current_price,
+            "highest_price": current_price,
+            "trade_id": trade_id,
+            "invested": size["invest_amount"]
+        }
+        open_tickers.append(ticker)
+
+        buys.append({
+            "ticker": ticker,
+            "price": current_price,
+            "amount": size["invest_amount"],
+            "confidence": final_signal.confidence,
+            "signal_type": final_signal.signal_type
+        })
+
+        logger.info(f"PAPER BUY: {ticker} | £{size['invest_amount']:.2f} | "
+                    f"Conf={final_signal.confidence:.1f}% | {final_signal.signal_type}")
 
     # ── Save state and snapshot ────────────────────────────────────────────
     portfolio_value = get_paper_portfolio_value(state)
@@ -453,7 +479,7 @@ def run_paper_scan() -> dict:
                 f"Buys: {len(buys)} | Sells: {len(sells)} | Errors: {errors}")
     logger.info(f"Paper Portfolio: £{portfolio_value:.2f} | P&L: £{total_pnl:.2f} ({total_pnl_pct:.2f}%)")
 
-    # Sort top signals by confidence for summary
+    # Sort top signals by confidence for Telegram summary
     top_signals_sorted = sorted(top_signals, key=lambda x: x["confidence"], reverse=True)[:5]
 
     return {
