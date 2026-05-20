@@ -139,8 +139,11 @@ class BreakoutSignal(BaseSignal):
                     squeeze_pts = 0
                     notes.append(f"Wide BBs — already expanded ({squeeze_ratio:.2f}x avg width)")
 
-                buy_score += squeeze_pts
-                sell_score += squeeze_pts
+                if buy_score >= sell_score:
+                    buy_score += squeeze_pts
+                else:
+                    sell_score += squeeze_pts
+
             else:
                 notes.append("BB width unavailable")
 
@@ -169,8 +172,10 @@ class BreakoutSignal(BaseSignal):
                 adx_pts = 0
                 notes.append(f"ADX flat/declining ({adx_val:.1f})")
 
-            buy_score += adx_pts
-            sell_score += adx_pts
+            if buy_score >= sell_score:
+                buy_score += adx_pts
+            else:
+                sell_score += adx_pts
 
             # ── Final Direction ───────────────────────────────────────────────
             if buy_score >= 65 and buy_score > sell_score:
