@@ -198,13 +198,13 @@ def run_scan(watchlist: list) -> list:
                     logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
                     from notifications.telegram import send_trade_alert
                     send_trade_alert(
-                    action="SELL",
-                    ticker=ticker,
-                    price=current_price,
-                    shares=shares,
-                    amount=round(sell_value, 2),
-                    confidence=0
-                )
+                        action="SELL",
+                        ticker=ticker,
+                        price=current_price,
+                        shares=shares,
+                        amount=round(sell_value, 2),
+                        confidence=0
+                    )
             # Update state
             cash += sell_value
             state["cash"] = cash
