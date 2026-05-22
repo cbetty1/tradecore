@@ -323,6 +323,12 @@ def run_paper_scan() -> dict:
             if df is None or df.empty:
                 continue
 
+             # Earnings calendar check — skip if earnings in next 3 days
+            from data.earnings_calendar import is_earnings_safe
+            if not is_earnings_safe(ticker):
+                logger.debug(f"[PAPER] Earnings approaching for {ticker} — skipping")
+                continue
+
             current_price = get_latest_price(ticker)
             if not current_price:
                 continue
