@@ -1,6 +1,6 @@
 {
   "description": "Paper scanner watchlist \u2014 S&P 500 + NASDAQ extras (cleaned)",
-  "total": 537,
+  "total": 530,
   "watchlist": [
     {
       "ticker": "AAPL",
@@ -329,10 +329,6 @@
     {
       "ticker": "PH",
       "name": "Parker-Hannifin Corporation"
-    },
-    {
-      "ticker": "MMC",
-      "name": "Marsh & McLennan Companies Inc"
     },
     {
       "ticker": "ICE",
@@ -1387,10 +1383,6 @@
       "name": "Cooper Companies Inc"
     },
     {
-      "ticker": "HOLX",
-      "name": "Hologic Inc"
-    },
-    {
       "ticker": "HSIC",
       "name": "Henry Schein Inc"
     },
@@ -1551,10 +1543,6 @@
       "name": "CSX Corporation"
     },
     {
-      "ticker": "CTRA",
-      "name": "Coterra Energy Inc"
-    },
-    {
       "ticker": "D",
       "name": "Dominion Energy Inc"
     },
@@ -1683,14 +1671,6 @@
       "name": "Johnson Controls International"
     },
     {
-      "ticker": "JWN",
-      "name": "Nordstrom Inc"
-    },
-    {
-      "ticker": "K",
-      "name": "Kellanova"
-    },
-    {
       "ticker": "KDP",
       "name": "Keurig Dr Pepper Inc"
     },
@@ -1749,10 +1729,6 @@
     {
       "ticker": "MOS",
       "name": "Mosaic Company"
-    },
-    {
-      "ticker": "MRO",
-      "name": "Marathon Oil Corporation"
     },
     {
       "ticker": "MRNA",
@@ -2117,10 +2093,6 @@
     {
       "ticker": "SPSC",
       "name": "SPS Commerce Inc"
-    },
-    {
-      "ticker": "STRL",
-      "name": "Sterling Infrastructure Inc"
     },
     {
       "ticker": "TGTX",
