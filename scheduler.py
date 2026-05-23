@@ -551,7 +551,7 @@ def start():
 
     scheduler.add_job(
         job_paper_scan,
-        CronTrigger(day_of_week="mon-fri", hour=18, minute=0),
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=45),
         id="paper_scan_late",
         name="Paper Scanner Late Session (600 stocks)"
     )
@@ -574,7 +574,7 @@ def start():
 
     scheduler.add_job(
         job_weekly_paper_analysis,
-        CronTrigger(day_of_week="fri", hour=17, minute=45),
+        CronTrigger(day_of_week="fri", hour=21, minute=30),
         id="weekly_paper_analysis",
         name="Weekly Paper Analysis"
     )
@@ -624,8 +624,8 @@ def start():
     logger.info("  21:00        Daily health digest")
     logger.info("  21:15        Daily report")
     logger.info("  Fri 17:30    Weekly live summary")
-    logger.info("  Fri 17:45    Weekly paper analysis PDF")
-    logger.info("  Fri 18:00    Weekly paper summary")
+    logger.info("  Fri 21:30    Weekly paper analysis PDF")
+    logger.info("  Fri 21:45    Weekly paper summary")
     logger.info("=" * 50)
 
     try:
