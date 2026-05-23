@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sqlite3
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "tradecore.db")
 REPORT_PATH = os.path.join(os.path.dirname(__file__), "..", "paper_weekly_report.pdf")
+WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "watchlist_paper.json")
 
 # Sector map — used to cluster tickers by sector for analysis
 SECTOR_MAP = {
@@ -63,6 +65,15 @@ def _get_sector(ticker: str) -> str:
     return SECTOR_MAP.get(ticker.upper().replace(".L", "").replace(".AS", ""), "Other")
 
 
+def _get_watchlist_size() -> int:
+    """Return the actual number of stocks in the paper watchlist."""
+    try:
+        with open(WATCHLIST_FILE) as f:
+            return len(json.load(f)["watchlist"])
+    except Exception:
+        return 530  # fallback
+
+
 def run_paper_analysis() -> dict:
     """
     Query the DB and compute all paper scanner stats for the week.
@@ -103,7 +114,7 @@ def run_paper_analysis() -> dict:
         closed_trades = [r for r in all_paper_trades if r["status"] == "CLOSED" and r["pnl"] is not None]
         open_trades = [r for r in all_paper_trades if r["status"] == "OPEN"]
 
-        # ── 3. Win/loss stats ─────────────────────────────────────────────
+        # ── 3. Win/loss stats (closed trades only) ────────────────────────
         wins = [r for r in closed_trades if r["pnl"] > 0]
         losses = [r for r in closed_trades if r["pnl"] <= 0]
         total_closed = len(closed_trades)
@@ -112,33 +123,36 @@ def run_paper_analysis() -> dict:
         avg_loss = sum(r["pnl"] for r in losses) / len(losses) if losses else 0.0
         total_pnl_closed = sum(r["pnl"] for r in closed_trades)
 
-        # ── 4. Signal type performance ────────────────────────────────────
+        # ── 4. Signal type performance (ALL trades — open + closed) ───────
+        # Using all trades so signal types show up even if nothing has closed yet
+        all_trades_for_analysis = closed_trades + open_trades
+
         signal_perf = {}
-        for r in closed_trades:
+        for r in all_trades_for_analysis:
             raw_type = (r["signal_type"] or "UNKNOWN")
             clean = raw_type.replace("PAPER_", "").replace("_PAPER", "").replace("PAPER", "")
             if clean not in signal_perf:
                 signal_perf[clean] = {"wins": 0, "losses": 0, "total_pnl": 0.0, "trades": 0}
             signal_perf[clean]["trades"] += 1
-            signal_perf[clean]["total_pnl"] += r["pnl"]
-            if r["pnl"] > 0:
-                signal_perf[clean]["wins"] += 1
-            else:
-                signal_perf[clean]["losses"] += 1
+            if r["pnl"] is not None:
+                signal_perf[clean]["total_pnl"] += r["pnl"]
+                if r["pnl"] > 0:
+                    signal_perf[clean]["wins"] += 1
+                else:
+                    signal_perf[clean]["losses"] += 1
 
         for k in signal_perf:
             t = signal_perf[k]["trades"]
             signal_perf[k]["win_rate"] = (signal_perf[k]["wins"] / t * 100) if t > 0 else 0.0
 
-        # ── 5. Confidence score vs performance ────────────────────────────
-        # Bucket into bands: 65-74, 75-84, 85-94, 95+
+        # ── 5. Confidence bands (ALL trades — open + closed) ──────────────
         confidence_bands = {
             "65-74": {"trades": 0, "wins": 0, "total_pnl": 0.0},
             "75-84": {"trades": 0, "wins": 0, "total_pnl": 0.0},
             "85-94": {"trades": 0, "wins": 0, "total_pnl": 0.0},
             "95+":   {"trades": 0, "wins": 0, "total_pnl": 0.0},
         }
-        for r in closed_trades:
+        for r in all_trades_for_analysis:
             conf = r["confidence"] or 0
             if conf >= 95:
                 band = "95+"
@@ -149,9 +163,10 @@ def run_paper_analysis() -> dict:
             else:
                 band = "65-74"
             confidence_bands[band]["trades"] += 1
-            confidence_bands[band]["total_pnl"] += r["pnl"]
-            if r["pnl"] > 0:
-                confidence_bands[band]["wins"] += 1
+            if r["pnl"] is not None:
+                confidence_bands[band]["total_pnl"] += r["pnl"]
+                if r["pnl"] > 0:
+                    confidence_bands[band]["wins"] += 1
 
         for band in confidence_bands:
             t = confidence_bands[band]["trades"]
@@ -162,7 +177,6 @@ def run_paper_analysis() -> dict:
         top_5 = sorted_closed[:5]
         bottom_5 = sorted_closed[-5:] if len(sorted_closed) >= 5 else sorted_closed[::-1]
 
-        # Hold time for closed trades
         def hold_days(r):
             try:
                 opened = datetime.fromisoformat(r["opened_at"])
@@ -180,15 +194,13 @@ def run_paper_analysis() -> dict:
             if r["pnl"]:
                 sector_pnl[sector] = sector_pnl.get(sector, 0.0) + r["pnl"]
 
-        # ── 8. Scan efficiency ────────────────────────────────────────────
+        # ── 8. Scan stats ─────────────────────────────────────────────────
+        # Actual universe size from watchlist file — not just tickers that traded
+        unique_tickers_scanned = _get_watchlist_size()
+
+        # Total signals fired this week (all paper signals evaluated)
         total_signals = conn.execute("""
             SELECT COUNT(*) as count FROM signals
-            WHERE date(created_at) >= ?
-            AND signal_type LIKE '%PAPER%'
-        """, (str(week_start),)).fetchone()["count"]
-
-        unique_tickers_scanned = conn.execute("""
-            SELECT COUNT(DISTINCT ticker) as count FROM signals
             WHERE date(created_at) >= ?
             AND signal_type LIKE '%PAPER%'
         """, (str(week_start),)).fetchone()["count"]
@@ -204,6 +216,27 @@ def run_paper_analysis() -> dict:
         """, (str(week_start),)).fetchall()
 
         conn.close()
+
+        # ── 10. Unrealised P&L from open positions ────────────────────────
+        # This is where the real gains live — open positions not yet closed
+        from data.price_feed import get_latest_price
+        unrealised_positions = []
+        for r in open_trades:
+            current_price = get_latest_price(r["ticker"])
+            if current_price and r["price"]:
+                shares = r["quantity"] or 0
+                unrealised_pnl = (current_price - r["price"]) * shares
+                unrealised_pct = ((current_price - r["price"]) / r["price"] * 100)
+                unrealised_positions.append({
+                    "ticker": r["ticker"],
+                    "pnl": round(unrealised_pnl, 2),
+                    "pct": round(unrealised_pct, 1),
+                    "entry": r["price"],
+                    "current": current_price,
+                })
+
+        unrealised_positions = sorted(unrealised_positions, key=lambda x: x["pnl"], reverse=True)
+        total_unrealised = round(sum(p["pnl"] for p in unrealised_positions), 2)
 
         # Week number since paper launch
         paper_launch = datetime.strptime("2026-05-19", "%Y-%m-%d").date()
@@ -232,6 +265,8 @@ def run_paper_analysis() -> dict:
             "sector_pnl": sector_pnl,
             "regime_counts": [dict(r) for r in regime_counts],
             "hold_days_fn": hold_days,
+            "unrealised_positions": unrealised_positions,
+            "total_unrealised": total_unrealised,
         }
 
     except Exception as e:
@@ -264,21 +299,14 @@ def generate_paper_report_pdf(data: dict) -> str | None:
 
         styles = getSampleStyleSheet()
 
-        # Custom styles
         title_style = ParagraphStyle(
-            "TCTitle",
-            parent=styles["Title"],
-            fontSize=18,
-            textColor=colors.HexColor("#00FF88"),
-            spaceAfter=4,
+            "TCTitle", parent=styles["Title"],
+            fontSize=18, textColor=colors.HexColor("#00FF88"), spaceAfter=4,
         )
         heading_style = ParagraphStyle(
-            "TCHeading",
-            parent=styles["Heading2"],
-            fontSize=12,
-            textColor=colors.HexColor("#00FF88"),
-            spaceBefore=12,
-            spaceAfter=4,
+            "TCHeading", parent=styles["Heading2"],
+            fontSize=12, textColor=colors.HexColor("#00FF88"),
+            spaceBefore=12, spaceAfter=4,
         )
         normal = styles["Normal"]
         small = ParagraphStyle("Small", parent=normal, fontSize=8)
@@ -290,18 +318,18 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         def tbl(data_rows, col_widths=None):
             t = Table(data_rows, colWidths=col_widths)
             t.setStyle(TableStyle([
-                ("BACKGROUND",   (0, 0), (-1, 0),  colors.HexColor("#111111")),
-                ("TEXTCOLOR",    (0, 0), (-1, 0),  colors.HexColor("#00FF88")),
-                ("FONTNAME",     (0, 0), (-1, 0),  "Helvetica-Bold"),
-                ("FONTSIZE",     (0, 0), (-1, -1), 8),
+                ("BACKGROUND",     (0, 0), (-1, 0),  colors.HexColor("#111111")),
+                ("TEXTCOLOR",      (0, 0), (-1, 0),  colors.HexColor("#00FF88")),
+                ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
+                ("FONTSIZE",       (0, 0), (-1, -1), 8),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1),
                  [colors.HexColor("#1a1a1a"), colors.HexColor("#222222")]),
-                ("TEXTCOLOR",    (0, 1), (-1, -1), colors.white),
-                ("GRID",         (0, 0), (-1, -1), 0.25, colors.HexColor("#333333")),
-                ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING",   (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
+                ("TEXTCOLOR",      (0, 1), (-1, -1), colors.white),
+                ("GRID",           (0, 0), (-1, -1), 0.25, colors.HexColor("#333333")),
+                ("LEFTPADDING",    (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING",   (0, 0), (-1, -1), 6),
+                ("TOPPADDING",     (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
             ]))
             return t
 
@@ -321,44 +349,70 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         story.append(Paragraph("1. Overview", heading_style))
         overview_rows = [
             ["Metric", "Value"],
-            ["Unique tickers scanned", str(data["unique_tickers_scanned"])],
-            ["Total signals generated", str(data["total_signals"])],
+            ["Stocks in universe", str(data["unique_tickers_scanned"])],
+            ["Signals fired this week", str(data["total_signals"])],
             ["Paper trades opened this week", str(data["total_open"] + data["total_closed"])],
             ["Trades closed this week", str(data["total_closed"])],
             ["Currently open positions", str(data["total_open"])],
-            ["Win rate (closed trades)", f"{data['win_rate']:.1f}%"],
+            ["Win rate (closed trades only)", f"{data['win_rate']:.1f}%"],
             ["Avg winning trade", f"+£{data['avg_win']:.2f}"],
             ["Avg losing trade", f"-£{abs(data['avg_loss']):.2f}"],
             ["Total realised P&L", f"£{data['total_pnl_closed']:+.2f}"],
+            ["Total unrealised P&L (open)", f"£{data['total_unrealised']:+.2f}"],
         ]
         story.append(tbl(overview_rows, col_widths=[10*cm, 6*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 2. Signal Type Breakdown ──────────────────────────────────────
-        story.append(Paragraph("2. Signal Type Performance", heading_style))
-        sig_rows = [["Signal Type", "Trades", "Wins", "Losses", "Win Rate", "Total P&L"]]
+        # ── 2. Unrealised P&L — Open Positions ───────────────────────────
+        story.append(Paragraph("2. Open Positions — Unrealised P&L", heading_style))
+        story.append(Paragraph(
+            "Where the real gains are sitting. These positions are still open — "
+            "not included in win rate or realised P&L above.", small
+        ))
+        story.append(Spacer(1, 4))
+        if data.get("unrealised_positions"):
+            unreal_rows = [["Ticker", "Entry", "Current Price", "Unrealised P&L", "Return"]]
+            for p in data["unrealised_positions"][:15]:
+                unreal_rows.append([
+                    p["ticker"],
+                    f"£{p['entry']:.2f}",
+                    f"£{p['current']:.2f}",
+                    f"£{p['pnl']:+.2f}",
+                    f"{p['pct']:+.1f}%",
+                ])
+            story.append(tbl(unreal_rows, col_widths=[3*cm, 3*cm, 3.5*cm, 4*cm, 3*cm]))
+        else:
+            story.append(Paragraph("No open positions this week.", small))
+        story.append(Spacer(1, 8))
+
+        # ── 3. Signal Type Performance ────────────────────────────────────
+        story.append(Paragraph("3. Signal Type Performance", heading_style))
+        story.append(Paragraph(
+            "Includes all trades (open + closed). Win/loss only counted on closed trades.", small
+        ))
+        story.append(Spacer(1, 4))
+        sig_rows = [["Signal Type", "Total Trades", "Wins", "Losses", "Win Rate", "Realised P&L"]]
         for sig_type, perf in data["signal_perf"].items():
-            pnl_str = f"£{perf['total_pnl']:+.2f}"
             sig_rows.append([
                 sig_type,
                 str(perf["trades"]),
                 str(perf["wins"]),
                 str(perf["losses"]),
-                f"{perf['win_rate']:.0f}%",
-                pnl_str,
+                f"{perf['win_rate']:.0f}%" if perf["wins"] + perf["losses"] > 0 else "Open",
+                f"£{perf['total_pnl']:+.2f}" if perf["total_pnl"] != 0 else "-",
             ])
         if len(sig_rows) == 1:
-            sig_rows.append(["No closed trades yet", "-", "-", "-", "-", "-"])
-        story.append(tbl(sig_rows, col_widths=[5*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 3*cm]))
+            sig_rows.append(["No trades yet", "-", "-", "-", "-", "-"])
+        story.append(tbl(sig_rows, col_widths=[4.5*cm, 2.5*cm, 1.5*cm, 1.5*cm, 2.5*cm, 3*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 3. Confidence Score vs Performance ───────────────────────────
-        story.append(Paragraph("3. Confidence Score vs Performance", heading_style))
+        # ── 4. Confidence Score vs Performance ───────────────────────────
+        story.append(Paragraph("4. Confidence Score vs Performance", heading_style))
         story.append(Paragraph(
-            "Does higher confidence actually lead to better trades?", small
+            "Does higher confidence lead to better trades? Includes all open + closed positions.", small
         ))
         story.append(Spacer(1, 4))
-        conf_rows = [["Confidence Band", "Trades", "Win Rate", "Total P&L"]]
+        conf_rows = [["Confidence Band", "Total Trades", "Win Rate", "Realised P&L"]]
         for band, stats in data["confidence_bands"].items():
             conf_rows.append([
                 band + "%",
@@ -369,9 +423,9 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         story.append(tbl(conf_rows, col_widths=[5*cm, 3*cm, 3*cm, 5*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 4. Top 5 Trades ───────────────────────────────────────────────
-        story.append(Paragraph("4. Top 5 Closed Trades", heading_style))
-        top_rows = [["Ticker", "P&L", "Signal", "Confidence", "Hold (days)"]]
+        # ── 5. Top 5 Closed Trades ────────────────────────────────────────
+        story.append(Paragraph("5. Top 5 Closed Trades", heading_style))
+        top_rows = [["Ticker", "P&L", "Signal", "Confidence", "Held (days)"]]
         hold_fn = data.get("hold_days_fn", lambda r: "-")
         for r in data["top_5"]:
             sig = (r.get("signal_type") or "").replace("PAPER_", "")
@@ -387,9 +441,9 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         story.append(tbl(top_rows, col_widths=[3*cm, 3*cm, 5*cm, 3*cm, 2.5*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 5. Bottom 5 Trades ────────────────────────────────────────────
-        story.append(Paragraph("5. Bottom 5 Closed Trades", heading_style))
-        bot_rows = [["Ticker", "P&L", "Signal", "Confidence", "Hold (days)"]]
+        # ── 6. Bottom 5 Closed Trades ─────────────────────────────────────
+        story.append(Paragraph("6. Bottom 5 Closed Trades", heading_style))
+        bot_rows = [["Ticker", "P&L", "Signal", "Confidence", "Held (days)"]]
         for r in data["bottom_5"]:
             sig = (r.get("signal_type") or "").replace("PAPER_", "")
             bot_rows.append([
@@ -404,10 +458,10 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         story.append(tbl(bot_rows, col_widths=[3*cm, 3*cm, 5*cm, 3*cm, 2.5*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 6. Sector Clustering ──────────────────────────────────────────
-        story.append(Paragraph("6. Sector Clustering", heading_style))
+        # ── 7. Sector Clustering ──────────────────────────────────────────
+        story.append(Paragraph("7. Sector Clustering", heading_style))
         story.append(Paragraph(
-            "Which sectors are generating the most paper signals?", small
+            "Which sectors are generating the most paper signals this week?", small
         ))
         story.append(Spacer(1, 4))
         sector_rows = [["Sector", "Trade Count", "Realised P&L"]]
@@ -422,8 +476,8 @@ def generate_paper_report_pdf(data: dict) -> str | None:
         story.append(tbl(sector_rows, col_widths=[6*cm, 4*cm, 6*cm]))
         story.append(Spacer(1, 8))
 
-        # ── 7. Market Regime ─────────────────────────────────────────────
-        story.append(Paragraph("7. Market Regime During Scan Week", heading_style))
+        # ── 8. Market Regime ──────────────────────────────────────────────
+        story.append(Paragraph("8. Market Regime During Scan Week", heading_style))
         regime_rows = [["Regime", "Signal Count"]]
         for r in data["regime_counts"]:
             regime_rows.append([r["regime"] or "Unknown", str(r["count"])])
@@ -457,7 +511,7 @@ def send_paper_analysis_telegram(data: dict, pdf_path: str | None) -> bool:
 
     base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-    # ── Headline Telegram message ─────────────────────────────────────────
+    # ── No data fallback ──────────────────────────────────────────────────
     if not data:
         requests.post(f"{base_url}/sendMessage", json={
             "chat_id": TELEGRAM_CHAT_ID,
@@ -466,7 +520,7 @@ def send_paper_analysis_telegram(data: dict, pdf_path: str | None) -> bool:
         }, timeout=10)
         return False
 
-    # Find best performing signal type
+    # Best performing signal type (min 2 trades to count)
     best_signal = "-"
     best_signal_wr = 0.0
     for sig_type, perf in data["signal_perf"].items():
@@ -474,7 +528,7 @@ def send_paper_analysis_telegram(data: dict, pdf_path: str | None) -> bool:
             best_signal = sig_type
             best_signal_wr = perf["win_rate"]
 
-    # Find best confidence band
+    # Best confidence band
     best_band = "-"
     best_band_wr = 0.0
     for band, stats in data["confidence_bands"].items():
@@ -487,12 +541,27 @@ def send_paper_analysis_telegram(data: dict, pdf_path: str | None) -> bool:
     if data["sector_counts"]:
         top_sector = max(data["sector_counts"], key=data["sector_counts"].get)
 
+    # Top 3 unrealised positions for the summary
+    unrealised_lines = ""
+    if data.get("unrealised_positions"):
+        top_open = data["unrealised_positions"][:3]
+        unrealised_lines = "\n<b>Top open positions:</b>\n"
+        for p in top_open:
+            arrow = "▲" if p["pnl"] >= 0 else "▼"
+            unrealised_lines += f"  {arrow} {p['ticker']}  £{p['pnl']:+.2f} ({p['pct']:+.1f}%)\n"
+
     message = (
         f"📊 <b>PAPER ANALYSIS — WEEK {data['week_number']}</b>\n"
         f"\n"
-        f"<b>Trades closed:</b> {data['total_closed']} "
+        f"<b>Universe:</b> {data['unique_tickers_scanned']} stocks scanned\n"
+        f"<b>Signals fired:</b> {data['total_signals']}\n"
+        f"<b>Open positions:</b> {data['total_open']}\n"
+        f"\n"
+        f"<b>Closed trades:</b> {data['total_closed']} "
         f"({data['wins']}W / {data['losses']}L — {data['win_rate']:.0f}% win rate)\n"
         f"<b>Realised P&L:</b> £{data['total_pnl_closed']:+.2f}\n"
+        f"<b>Unrealised P&L:</b> £{data['total_unrealised']:+.2f}\n"
+        f"{unrealised_lines}"
         f"\n"
         f"<b>Best signal type:</b> {best_signal} ({best_signal_wr:.0f}% win rate)\n"
         f"<b>Best confidence band:</b> {best_band} ({best_band_wr:.0f}% win rate)\n"
@@ -527,6 +596,21 @@ def send_paper_analysis_telegram(data: dict, pdf_path: str | None) -> bool:
             return True
         except Exception as e:
             logger.error(f"Failed to send PDF to Telegram: {e}")
+            # Alert via Telegram so failures are never invisible
+            try:
+                requests.post(f"{base_url}/sendMessage", json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": (
+                        f"⚠️ <b>PDF SEND FAILED</b>\n\n"
+                        f"Week {data.get('week_number', '?')} paper analysis PDF "
+                        f"failed to deliver.\n"
+                        f"Error: {str(e)[:200]}\n\n"
+                        f"📋 TradeCore"
+                    ),
+                    "parse_mode": "HTML"
+                }, timeout=10)
+            except Exception:
+                pass
             return False
 
     return True
