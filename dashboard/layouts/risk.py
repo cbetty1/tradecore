@@ -1,8 +1,32 @@
+import json
+import os
 from dash import html
 from risk.drawdown_guard import is_kill_switch_active, get_current_drawdown
 from execution.order_manager import load_portfolio_state, get_portfolio_value
 from database.queries import get_snapshots
-import json
+
+RISK_LIMITS_FILE = os.path.join(
+    os.path.dirname(__file__), "..", "..", "config", "risk_limits.json"
+)
+
+
+def _load_risk_limits() -> dict:
+    """Load current risk limits from config — never hardcode these."""
+    try:
+        with open(RISK_LIMITS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {
+            "max_drawdown_pct": 8.0,
+            "max_position_pct": 15.0,
+            "max_open_positions": 5,
+            "min_confidence_threshold": 65.0,
+            "cash_floor_gbp": 20.0,
+            "daily_loss_limit_pct": 3.0,
+            "correlation_limit": 0.85,
+            "stop_loss_pct": 5.0,
+            "take_profit_pct": 15.0,
+        }
 
 
 def layout():
@@ -12,14 +36,18 @@ def layout():
     portfolio_value = get_portfolio_value(state)
     starting_capital = state["starting_capital"]
 
+    # Load live risk limits — all values come from here, nothing hardcoded
+    limits = _load_risk_limits()
+    max_drawdown = limits.get("max_drawdown_pct", 8.0)
+    max_positions = limits.get("max_open_positions", 5)
+
     kill = is_kill_switch_active(
-        max_drawdown_pct=8.0,
-        daily_loss_pct=3.0,
+        max_drawdown_pct=max_drawdown,
+        daily_loss_pct=limits.get("daily_loss_limit_pct", 3.0),
         starting_capital=starting_capital
     )
 
     drawdown = get_current_drawdown(starting_capital)
-    max_drawdown = 8.0
     drawdown_pct_of_limit = min((drawdown / max_drawdown) * 100, 100)
 
     # Drawdown bar color
@@ -53,7 +81,7 @@ def layout():
             _risk_card("System Status",
                        f"{status_dot} {status_text}", status_color),
             _risk_card("Open Positions",
-                       f"{open_positions} / 8 max", "#fff"),
+                       f"{open_positions} / {max_positions} max", "#fff"),
             _risk_card("Cash Exposure",
                        f"{exposure_pct:.1f}% invested", "#ffaa00"),
             _risk_card("Portfolio Value",
@@ -106,14 +134,22 @@ def layout():
         html.Div([
             html.H3("Active Risk Rules", style={"color": "#888",
                     "fontSize": "14px", "marginBottom": "15px"}),
-            _rule_row("Max drawdown limit", "8.0%"),
-            _rule_row("Daily loss limit", "3.0%"),
-            _rule_row("Max position size", "15% of portfolio"),
-            _rule_row("Max open positions", "8"),
-            _rule_row("Stop loss per trade", "5%"),
-            _rule_row("Take profit per trade", "15%"),
-            _rule_row("Min signal confidence", "65%"),
-            _rule_row("Correlation limit", "0.75"),
+            _rule_row("Max drawdown limit",
+                      f"{limits.get('max_drawdown_pct', 8.0)}%"),
+            _rule_row("Daily loss limit",
+                      f"{limits.get('daily_loss_limit_pct', 3.0)}%"),
+            _rule_row("Max position size",
+                      f"{limits.get('max_position_pct', 15.0)}% of portfolio"),
+            _rule_row("Max open positions",
+                      str(max_positions)),
+            _rule_row("Stop loss per trade",
+                      f"{limits.get('stop_loss_pct', 5.0)}%"),
+            _rule_row("Take profit per trade",
+                      f"{limits.get('take_profit_pct', 15.0)}%"),
+            _rule_row("Min signal confidence",
+                      f"{limits.get('min_confidence_threshold', 65.0)}%"),
+            _rule_row("Correlation limit",
+                      f"{limits.get('correlation_limit', 0.85)}"),
         ], style={"backgroundColor": "#111", "borderRadius": "8px",
                   "padding": "20px"}),
 
