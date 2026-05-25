@@ -2,8 +2,9 @@ from dash import html, dcc, callback, Output, Input, State, no_update
 import json
 import os
 
+# Use absolute path — relative paths break depending on working directory
 RISK_LIMITS_FILE = os.path.join(
-    os.path.dirname(__file__), "..","..", "config", "risk_limits.json"
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "config", "risk_limits.json"
 )
 
 
@@ -16,14 +17,14 @@ def _load_risk_limits() -> dict:
         return {
             "max_drawdown_pct": 8.0,
             "max_position_pct": 15.0,
-            "max_open_positions": 8,
+            "max_open_positions": 6,
             "min_confidence_threshold": 65.0,
             "cash_floor_gbp": 20.0,
             "daily_loss_limit_pct": 3.0,
             "correlation_limit": 0.85,
             "stop_loss_pct": 5.0,
             "take_profit_pct": 15.0,
-            "paper_trading_mode": True,
+            "paper_trading_mode": False,
             "cash_deployment_threshold_pct": 40.0,
             "cash_deployment_min_confidence": 80.0,
         }
@@ -65,7 +66,7 @@ def layout():
             _status_card("Mode", mode_text, mode_color),
             _status_card("Portfolio", f"£{portfolio_value:,.2f}", "#fff"),
             _status_card("Positions",
-                         f"{open_positions} / {limits.get('max_open_positions', 8)}",
+                         f"{open_positions} / {limits.get('max_open_positions', 6)}",
                          "#fff"),
             _status_card("Cash", f"£{cash:,.2f}", "#00aaff"),
             _status_card("Kill Switch", kill_text, kill_color),
@@ -84,7 +85,7 @@ def layout():
                 "The most trades you can have running at the same time. "
                 "Keep this low when your portfolio is small to avoid spreading "
                 "your money too thin.",
-                limits.get("max_open_positions", 8),
+                limits.get("max_open_positions", 6),
                 step=1, min_val=1, max_val=20, unit="",
             ),
             _setting_row(
@@ -331,7 +332,7 @@ def save_settings(
         new_limits = {
             "max_drawdown_pct": float(max_drawdown_pct or 8.0),
             "max_position_pct": float(max_position_pct or 15.0),
-            "max_open_positions": int(max_open_positions or 8),
+            "max_open_positions": int(max_open_positions or 6),
             "min_confidence_threshold": float(min_confidence_threshold or 65.0),
             "cash_floor_gbp": float(cash_floor_gbp or 20.0),
             "daily_loss_limit_pct": float(daily_loss_limit_pct or 3.0),
@@ -347,11 +348,22 @@ def save_settings(
             ),
         }
 
+        # Write to file
         with open(RISK_LIMITS_FILE, "w") as f:
             json.dump(new_limits, f, indent=2)
 
+        # Verify it was written correctly
+        with open(RISK_LIMITS_FILE, "r") as f:
+            saved = json.load(f)
+
+        if saved.get("max_open_positions") != new_limits["max_open_positions"]:
+            raise Exception("Verification failed — file did not save correctly")
+
         return (
-            "✅ Settings saved successfully. Changes take effect on the next scan.",
+            f"✅ Settings saved — Max positions: {new_limits['max_open_positions']} | "
+            f"Stop loss: {new_limits['stop_loss_pct']}% | "
+            f"Take profit: {new_limits['take_profit_pct']}% | "
+            f"Changes take effect on the next scan.",
             {"fontSize": "13px", "padding": "8px 0", "color": "#00ff88"},
         )
     except Exception as e:
