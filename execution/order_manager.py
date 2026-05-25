@@ -189,16 +189,28 @@ def run_scan(watchlist: list) -> list:
                 order_result = broker.place_sell_order(ticker, shares)
 
                 if "error" in order_result:
-                    logger.error(f"LIVE SELL FAILED for {ticker}: {order_result['error']}")
-                    # Don't update state if the real order failed
-                    from notifications.telegram import send_message
-                    send_message(
-                        f"🚨 <b>LIVE SELL FAILED</b>\n\n"
-                        f"<b>Stock:</b> {ticker}\n"
-                        f"<b>Shares:</b> {shares:.6f}\n"
-                        f"<b>Error:</b> {order_result['error']}\n\n"
-                        f"⚡ TradeCore LIVE"
-                    )
+                    error_msg = str(order_result['error'])
+                    logger.error(f"LIVE BUY FAILED for {ticker}: {error_msg}")
+
+                    # Suppress Telegram alerts for known non-critical failures
+                    # These are expected conditions, not system errors
+                    silent_errors = [
+                        "whole shares but position size too small",
+                        "insufficient-free-for-stocks-buy",
+                        "Insufficient funds",
+                    ]
+                    is_silent = any(e in error_msg for e in silent_errors)
+
+                    if not is_silent:
+                        from notifications.telegram import send_message
+                        send_message(
+                            f"🚨 <b>LIVE BUY FAILED</b>\n\n"
+                            f"<b>Stock:</b> {ticker}\n"
+                            f"<b>Shares:</b> {size['shares']:.6f}\n"
+                            f"<b>Amount:</b> £{size['invest_amount']:.2f}\n"
+                            f"<b>Error:</b> {error_msg}\n\n"
+                            f"⚡ TradeCore LIVE"
+                        )
                     continue
                 else:
                     logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
