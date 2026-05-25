@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 # Load ticker mapping
 TICKER_MAP_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "t212_tickers.json")
 
+# ETFs that do not support fractional shares on T212 — whole numbers only
+NON_FRACTIONAL_TICKERS = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ"}
+
 
 def _load_ticker_map() -> dict:
     """Load yfinance -> T212 ticker mapping."""
@@ -70,9 +73,9 @@ class T212Broker(BrokerBase):
         credentials = f"{T212_API_KEY}:{T212_API_SECRET}"
         encoded = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
         return {
-        "Authorization": f"Basic {encoded}",
-        "Content-Type": "application/json"
-    }
+            "Authorization": f"Basic {encoded}",
+            "Content-Type": "application/json"
+        }
 
     def _request(self, method: str, endpoint: str,
                  data: dict = None, timeout: int = 15) -> Optional[Dict]:
@@ -100,7 +103,7 @@ class T212Broker(BrokerBase):
                 except Exception:
                     error_body = resp.text
                 logger.error(f"T212 API {method} {endpoint} failed: "
-                           f"HTTP {resp.status_code} — {error_body}")
+                             f"HTTP {resp.status_code} — {error_body}")
                 return {"_status_code": resp.status_code, "_error": error_body}
 
         except requests.exceptions.Timeout:
@@ -170,6 +173,16 @@ class T212Broker(BrokerBase):
         if quantity <= 0:
             return {"error": "Buy quantity must be positive"}
 
+        # Some ETFs don't support fractional shares — round down to whole number
+        if t212_ticker in NON_FRACTIONAL_TICKERS:
+            quantity = int(quantity)
+            if quantity < 1:
+                logger.warning(f"SKIPPED: {ticker} requires whole shares but "
+                               f"position size too small for 1 share")
+                return {"error": f"{ticker} requires whole shares but position "
+                                 f"size too small for 1 share"}
+            logger.info(f"Non-fractional ETF: {ticker} — rounding to {quantity} whole shares")
+
         order_data = {
             "ticker": t212_ticker,
             "quantity": round(quantity, 6),
@@ -177,21 +190,22 @@ class T212Broker(BrokerBase):
         }
 
         logger.info(f"PLACING BUY ORDER: {ticker} ({t212_ticker}) | "
-                    f"Qty={quantity:.6f}")
+                    f"Qty={quantity}")
 
         result = self._request("POST", "orders/market", data=order_data)
-
-        if result:
-            logger.info(f"BUY ORDER PLACED: {ticker} | "
-                       f"Order ID={result.get('id', 'unknown')} | "
-                       f"Status={result.get('status', 'unknown')}")
-        else:
-            logger.error(f"BUY ORDER FAILED: {ticker}")
 
         if result and "_error" in result:
             error_detail = result.get("_error", "Unknown error")
             logger.error(f"BUY ORDER REJECTED by T212: {ticker} — {error_detail}")
             return {"error": str(error_detail)}
+
+        if result:
+            logger.info(f"BUY ORDER PLACED: {ticker} | "
+                        f"Order ID={result.get('id', 'unknown')} | "
+                        f"Status={result.get('status', 'unknown')}")
+        else:
+            logger.error(f"BUY ORDER FAILED: {ticker}")
+
         return result or {"error": "Order placement failed"}
 
     def place_sell_order(self, ticker: str, shares: float) -> dict:
@@ -213,28 +227,34 @@ class T212Broker(BrokerBase):
         if shares <= 0:
             return {"error": "Sell shares must be positive"}
 
-        # Some ETFs (VUKE, VUSA, VWCE) don't support fractional shares
-        NON_FRACTIONAL = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ"}
-        if t212_ticker in NON_FRACTIONAL:
-            quantity = int(quantity)  # round down to whole shares
-            if quantity < 1:
-                return {"error": f"{ticker} requires whole shares but position size too small for 1 share"}
+        # Some ETFs don't support fractional shares — round down to whole number
+        if t212_ticker in NON_FRACTIONAL_TICKERS:
+            shares = int(shares)
+            if shares < 1:
+                return {"error": f"{ticker} requires whole shares but "
+                                 f"position size too small for 1 share"}
+            logger.info(f"Non-fractional ETF: {ticker} — rounding to {shares} whole shares")
 
         order_data = {
             "ticker": t212_ticker,
-            "quantity": round(quantity, 6),
+            "quantity": -round(shares, 6),  # T212 uses negative for sells
             "extendedHours": False
         }
 
         logger.info(f"PLACING SELL ORDER: {ticker} ({t212_ticker}) | "
-                    f"Qty={shares:.6f}")
+                    f"Qty={shares}")
 
         result = self._request("POST", "orders/market", data=order_data)
 
+        if result and "_error" in result:
+            error_detail = result.get("_error", "Unknown error")
+            logger.error(f"SELL ORDER REJECTED by T212: {ticker} — {error_detail}")
+            return {"error": str(error_detail)}
+
         if result:
             logger.info(f"SELL ORDER PLACED: {ticker} | "
-                       f"Order ID={result.get('id', 'unknown')} | "
-                       f"Status={result.get('status', 'unknown')}")
+                        f"Order ID={result.get('id', 'unknown')} | "
+                        f"Status={result.get('status', 'unknown')}")
         else:
             logger.error(f"SELL ORDER FAILED: {ticker}")
 
