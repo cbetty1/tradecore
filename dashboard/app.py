@@ -92,6 +92,13 @@ app.layout = html.Div([
         "minHeight": "calc(100vh - 120px)"
     }),
 
+    # ── Hidden preload — ensures all callbacks register at startup ────────────
+    html.Div([
+        html.Div(id="settings-save-status"),
+        html.Div(id="settings-live-warning"),
+        html.Div(id="settings-recommendation-box"),
+    ], style={"display": "none"}),
+
     # ── Auto Refresh Every 60 Seconds ─────────────────────────────────────────
     dcc.Interval(id="refresh", interval=60000, n_intervals=0)
 
