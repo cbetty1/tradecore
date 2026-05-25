@@ -95,9 +95,13 @@ class T212Broker(BrokerBase):
             if resp.status_code in (200, 201):
                 return resp.json() if resp.text else {}
             else:
+                try:
+                    error_body = resp.json()
+                except Exception:
+                    error_body = resp.text
                 logger.error(f"T212 API {method} {endpoint} failed: "
-                           f"HTTP {resp.status_code} — {resp.text}")
-                return None
+                           f"HTTP {resp.status_code} — {error_body}")
+                return {"_status_code": resp.status_code, "_error": error_body}
 
         except requests.exceptions.Timeout:
             logger.error(f"T212 API timeout: {method} {endpoint}")
