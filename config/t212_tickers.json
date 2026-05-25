@@ -11,9 +11,9 @@
     "GOOGL":   "GOOGL_US_EQ",
     "ASML":    "ASML_US_EQ",
     "IBM":     "IBM_US_EQ",
-    "VWCE.AS": "VWCE_EQ",
-    "VUSA.L":  "VUSA_EQ",
-    "VUKE.L":  "VUKE_EQ"
+    "VWCE.AS": "VWCEd_EQ",
+    "VUSA.L":  "VUSAl_EQ",
+    "VUKE.L":  "VUKEl_EQ"
   },
   "_notes": "Maps yfinance tickers to Trading 212 internal tickers. Verify ETF tickers (VWCE, VUSA, VUKE) against T212 instruments endpoint after first connection."
 }
