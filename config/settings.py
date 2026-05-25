@@ -42,4 +42,3 @@ CASH_DEPLOYMENT_THRESHOLD_PCT = 40.0
 CASH_DEPLOYMENT_MIN_CONFIDENCE = 80.0
 
 MAX_POSITION_SIZE = 0.20      # Max 20% of portfolio in one position
-MAX_OPEN_POSITIONS = 4        # Max number of concurrent open positions

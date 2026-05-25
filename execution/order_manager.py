@@ -14,7 +14,6 @@ from database.queries import (insert_signal, insert_trade,
                                insert_snapshot)
 from config.settings import (DEFAULT_CONFIDENCE_THRESHOLD,
                               MAX_POSITION_SIZE, CASH_FLOOR,
-                              MAX_OPEN_POSITIONS,
                               CASH_DEPLOYMENT_THRESHOLD_PCT,
                               CASH_DEPLOYMENT_MIN_CONFIDENCE)
 
@@ -47,7 +46,14 @@ def _is_paper_mode() -> bool:
         logger.error(f"Failed to read risk_limits.json — defaulting to PAPER mode: {e}")
         return True  # Always default to paper for safety
 
-
+def _get_max_positions() -> int:
+    """Read max_open_positions dynamically from risk_limits.json."""
+    try:
+        with open(RISK_LIMITS_FILE) as f:
+            return json.load(f).get("max_open_positions", 5)
+    except Exception:
+        return 5  # safe fallback
+    
 def _get_broker():
     """Get the T212 broker instance for live trading."""
     from execution.t212_broker import T212Broker
@@ -246,8 +252,9 @@ def run_scan(watchlist: list) -> list:
             continue
 
         # Skip if max positions reached — check BEFORE any processing
-        if len(state["positions"]) >= MAX_OPEN_POSITIONS:
-            logger.info(f"Max positions ({MAX_OPEN_POSITIONS}) reached — skipping new entries.")
+        max_positions = _get_max_positions()
+        if len(state["positions"]) >= max_positions:
+            logger.info(f"Max positions ({max_positions}) reached — skipping new entries.")
             break
 
         # Skip if no cash
