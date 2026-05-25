@@ -188,6 +188,10 @@ class T212Broker(BrokerBase):
         else:
             logger.error(f"BUY ORDER FAILED: {ticker}")
 
+        if result and "_error" in result:
+            error_detail = result.get("_error", "Unknown error")
+            logger.error(f"BUY ORDER REJECTED by T212: {ticker} — {error_detail}")
+            return {"error": str(error_detail)}
         return result or {"error": "Order placement failed"}
 
     def place_sell_order(self, ticker: str, shares: float) -> dict:
@@ -209,9 +213,16 @@ class T212Broker(BrokerBase):
         if shares <= 0:
             return {"error": "Sell shares must be positive"}
 
+        # Some ETFs (VUKE, VUSA, VWCE) don't support fractional shares
+        NON_FRACTIONAL = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ"}
+        if t212_ticker in NON_FRACTIONAL:
+            quantity = int(quantity)  # round down to whole shares
+            if quantity < 1:
+                return {"error": f"{ticker} requires whole shares but position size too small for 1 share"}
+
         order_data = {
             "ticker": t212_ticker,
-            "quantity": -round(shares, 6),  # T212 uses negative for sells
+            "quantity": round(quantity, 6),
             "extendedHours": False
         }
 
