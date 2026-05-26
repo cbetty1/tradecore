@@ -11,8 +11,7 @@
     { "ticker": "GOOGL", "name": "Alphabet", "exchange": "NASDAQ", "currency": "USD" },
     { "ticker": "ASML", "name": "ASML", "exchange": "NASDAQ", "currency": "USD" },
     { "ticker": "IBM", "name": "IBM", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "VWCE.AS", "name": "Vanguard FTSE All-World", "exchange": "AMS", "currency": "EUR" },
-    { "ticker": "VUKE.L", "name": "Vanguard FTSE 100", "exchange": "LSE", "currency": "GBP" }
+    { "ticker": "VWCE.AS", "name": "Vanguard FTSE All-World", "exchange": "AMS", "currency": "EUR" }
   ],
   "sectors": [
     { "ticker": "XLK", "name": "Technology" },
