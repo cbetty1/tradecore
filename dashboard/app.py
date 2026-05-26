@@ -92,12 +92,14 @@ app.layout = html.Div([
         "minHeight": "calc(100vh - 120px)"
     }),
 
-    # ── Hidden preload — ensures all callbacks register at startup ────────────
-    html.Div([
-        html.Div(id="settings-save-status"),
-        html.Div(id="settings-live-warning"),
-        html.Div(id="settings-recommendation-box"),
-    ], style={"display": "none"}),
+    # ── Settings layout always rendered — hidden when not on settings tab ─────
+    # This ensures all settings callbacks register at startup regardless of
+    # which tab is active. Display is toggled by the tab router below.
+    html.Div(
+        id="settings-persistent",
+        style={"display": "none", "padding": "20px 30px",
+               "backgroundColor": "#0a0a0a"}
+    ),
 
     # ── Auto Refresh Every 60 Seconds ─────────────────────────────────────────
     dcc.Interval(id="refresh", interval=60000, n_intervals=0)
@@ -109,6 +111,9 @@ app.layout = html.Div([
 # ── Tab Router ────────────────────────────────────────────────────────────────
 @app.callback(
     Output("tab-content", "children"),
+    Output("tab-content", "style"),
+    Output("settings-persistent", "children"),
+    Output("settings-persistent", "style"),
     Output("last-updated", "children"),
     Input("tabs", "value"),
     Input("refresh", "n_intervals")
@@ -117,20 +122,46 @@ def render_tab(tab, _):
     from dashboard.layouts import portfolio, signals, risk, backtest, wallet, settings
     timestamp = f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
 
-    if tab == "portfolio":
-        return portfolio.layout(), timestamp
-    elif tab == "signals":
-        return signals.layout(), timestamp
-    elif tab == "risk":
-        return risk.layout(), timestamp
-    elif tab == "backtest":
-        return backtest.layout(), timestamp
-    elif tab == "wallet":
-        return wallet.layout(), timestamp
-    elif tab == "settings":
-        return settings.layout(), timestamp
+    tab_style_visible = {
+        "padding": "20px 30px",
+        "backgroundColor": "#0a0a0a",
+        "minHeight": "calc(100vh - 120px)"
+    }
+    tab_style_hidden = {
+        "padding": "20px 30px",
+        "backgroundColor": "#0a0a0a",
+        "minHeight": "calc(100vh - 120px)",
+        "display": "none"
+    }
+    settings_visible = {
+        "display": "block",
+        "padding": "20px 30px",
+        "backgroundColor": "#0a0a0a"
+    }
+    settings_hidden = {
+        "display": "none",
+        "padding": "20px 30px",
+        "backgroundColor": "#0a0a0a"
+    }
 
-    return html.Div("Tab not found"), timestamp
+    # Always render settings in the persistent div
+    settings_content = settings.layout()
+
+    if tab == "portfolio":
+        return portfolio.layout(), tab_style_visible, settings_content, settings_hidden, timestamp
+    elif tab == "signals":
+        return signals.layout(), tab_style_visible, settings_content, settings_hidden, timestamp
+    elif tab == "risk":
+        return risk.layout(), tab_style_visible, settings_content, settings_hidden, timestamp
+    elif tab == "backtest":
+        return backtest.layout(), tab_style_visible, settings_content, settings_hidden, timestamp
+    elif tab == "wallet":
+        return wallet.layout(), tab_style_visible, settings_content, settings_hidden, timestamp
+    elif tab == "settings":
+        # Hide tab-content, show settings-persistent
+        return html.Div(), tab_style_hidden, settings_content, settings_visible, timestamp
+
+    return html.Div("Tab not found"), tab_style_visible, settings_content, settings_hidden, timestamp
 
 
 if __name__ == "__main__":
