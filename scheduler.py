@@ -581,7 +581,7 @@ def start():
 
     scheduler.add_job(
         job_weekly_paper_summary,
-        CronTrigger(day_of_week="fri", hour=18, minute=0),
+        CronTrigger(day_of_week="fri", hour=21, minute=45),
         id="weekly_paper_summary",
         name="Weekly Paper Summary"
     )
@@ -619,7 +619,7 @@ def start():
     logger.info("  20:30        Late US scan (execution only)")
     logger.info("  ── Paper Scanner ─────────────────────")
     logger.info("  14:45        Paper scan — US open (600 stocks)")
-    logger.info("  18:00        Paper scan — late session (600 stocks)")
+    logger.info("  20:30        Paper scan — late session (600 stocks)")
     logger.info("  ── Reports ───────────────────────────")
     logger.info("  21:00        Daily health digest")
     logger.info("  21:15        Daily report")
