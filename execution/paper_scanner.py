@@ -36,7 +36,7 @@ def load_paper_limits() -> dict:
         return {
             "max_drawdown_pct": 8.0,
             "max_position_pct": 15.0,
-            "max_open_positions": 20,
+            "max_open_positions": 30,
             "min_confidence_threshold": 65.0,
             "cash_floor_gbp": 10.0,
             "daily_loss_limit_pct": 3.0,
@@ -102,7 +102,7 @@ def get_paper_portfolio_value(state: dict) -> float:
 def get_paper_summary() -> dict:
     """
     Build a weekly summary of paper scanner performance.
-    Called by job_weekly_paper_summary() in scheduler.py every Friday 18:00.
+    Called by job_weekly_paper_summary() in scheduler.py every Friday 21:45.
 
     Returns:
         Dict consumed by send_weekly_paper_summary() in telegram.py
@@ -147,13 +147,6 @@ def get_paper_summary() -> dict:
             avg_win = sum(wins) / len(wins) if wins else 0.0
             avg_loss = sum(losses) / len(losses) if losses else 0.0
 
-            total_scanned = conn.execute(
-                """SELECT COUNT(DISTINCT ticker) as count FROM signals
-                   WHERE date(created_at) >= ?
-                   AND signal_type LIKE 'PAPER_%'""",
-                (str(week_start),)
-            ).fetchone()["count"]
-
     except Exception as e:
         logger.error(f"Paper summary DB query failed: {e}")
         buys_week = 0
@@ -162,7 +155,13 @@ def get_paper_summary() -> dict:
         losses = []
         avg_win = 0.0
         avg_loss = 0.0
-        total_scanned = 0
+
+    # Actual watchlist size — read from file, not DB
+    # Must be outside the DB block to always reflect true universe size
+    try:
+        total_scanned = len(load_paper_watchlist())
+    except Exception:
+        total_scanned = 530  # fallback
 
     top_performers = []
     worst_performers = []
@@ -197,7 +196,7 @@ def get_paper_summary() -> dict:
         "weekly_pnl": weekly_pnl,
         "weekly_pnl_pct": weekly_pnl_pct,
         "open_positions": len(state["positions"]),
-        "max_positions": limits.get("max_open_positions", 20),
+        "max_positions": limits.get("max_open_positions", 30),
         "total_buys_week": buys_week,
         "total_sells_week": sells_week,
         "wins": len(wins),
@@ -214,7 +213,7 @@ def get_paper_summary() -> dict:
 def run_paper_scan() -> dict:
     """
     Run the 600-stock paper scanner.
-    Fires at 14:45 (US open) and 18:00 (mid US session) Monday to Friday.
+    Fires at 14:45 (US open), 20:30 (late US session) Monday to Friday.
     Completely independent from live trading — separate state,
     separate config, separate watchlist.
 
@@ -308,7 +307,7 @@ def run_paper_scan() -> dict:
     open_tickers = list(state["positions"].keys())
     scanned = 0
     signals_fired = 0
-    signal_queue = []  # All actionable signals, ranked by confidence in Pass 2
+    signal_queue = []
 
     for stock in watchlist:
         ticker = stock["ticker"]
@@ -323,7 +322,7 @@ def run_paper_scan() -> dict:
             if df is None or df.empty:
                 continue
 
-             # Earnings calendar check — skip if earnings in next 3 days
+            # Earnings calendar check — skip if earnings in next 3 days
             from data.earnings_calendar import is_earnings_safe
             if not is_earnings_safe(ticker):
                 logger.debug(f"[PAPER] Earnings approaching for {ticker} — skipping")
@@ -354,7 +353,6 @@ def run_paper_scan() -> dict:
 
             signals_fired += 1
 
-            # Add to signal queue for ranked entry in Pass 2
             signal_queue.append({
                 "ticker": ticker,
                 "signal": final_signal,
@@ -364,7 +362,6 @@ def run_paper_scan() -> dict:
                 "signal_type": final_signal.signal_type
             })
 
-            # Track for top signals summary
             top_signals.append({
                 "ticker": ticker,
                 "signal_type": final_signal.signal_type,
@@ -390,17 +387,14 @@ def run_paper_scan() -> dict:
         final_signal = item["signal"]
         current_price = item["current_price"]
 
-        # Stop if no slots or no cash
         if len(state["positions"]) >= max_positions:
             break
         if cash < cash_floor:
             break
 
-        # Skip if already bought this scan
         if ticker in open_tickers:
             continue
 
-        # Correlation check
         corr_check = is_too_correlated(
             ticker, open_tickers,
             correlation_limit=correlation_limit
@@ -411,7 +405,6 @@ def run_paper_scan() -> dict:
                     final_signal.confidence >= limits["cash_deployment_min_confidence"]):
                 continue
 
-        # Position sizing
         size = calculate_position_size(
             portfolio_value=portfolio_value,
             cash_available=cash,
@@ -423,7 +416,6 @@ def run_paper_scan() -> dict:
         if not size["approved"]:
             continue
 
-        # Log to database as paper trade
         signal_id = insert_signal(
             ticker=ticker,
             signal_type=f"PAPER_{final_signal.signal_type}",
@@ -443,7 +435,6 @@ def run_paper_scan() -> dict:
             paper=1
         )
 
-        # Update paper state
         cash -= size["invest_amount"]
         state["cash"] = cash
         state["positions"][ticker] = {
@@ -485,7 +476,6 @@ def run_paper_scan() -> dict:
                 f"Buys: {len(buys)} | Sells: {len(sells)} | Errors: {errors}")
     logger.info(f"Paper Portfolio: £{portfolio_value:.2f} | P&L: £{total_pnl:.2f} ({total_pnl_pct:.2f}%)")
 
-    # Sort top signals by confidence for Telegram summary
     top_signals_sorted = sorted(top_signals, key=lambda x: x["confidence"], reverse=True)[:5]
 
     return {
