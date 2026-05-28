@@ -207,6 +207,8 @@ def check_t212_sync() -> Dict:
 
         t212_pos_map = {}
         for pos in t212_positions:
+            if pos.get("quantityInPies", 0) > 0:
+                continue
             t212_ticker = pos.get("ticker", "")
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
             t212_pos_map[yf_ticker] = float(pos.get("quantity", 0))
