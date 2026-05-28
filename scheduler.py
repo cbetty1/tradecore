@@ -309,6 +309,11 @@ def job_daily_report():
         snapshots = get_snapshots(2)
         if len(snapshots) >= 2:
             daily_pnl = snapshots[0]["total_value"] - snapshots[1]["total_value"]
+            # Sanity check — if daily P&L is more than 50% of portfolio it's a bad snapshot
+            # This happens when state drifts and snapshots are from different states
+            if abs(daily_pnl) > (portfolio_value * 0.5):
+                logger.warning(f"Daily P&L sanity check failed: {daily_pnl:.2f} — capping at 0")
+                daily_pnl = 0.0
         else:
             daily_pnl = 0.0
 
