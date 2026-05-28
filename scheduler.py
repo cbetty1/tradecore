@@ -499,10 +499,20 @@ def job_weekly_paper_summary():
         from notifications.telegram import send_message
         send_message(f"⚠️ <b>WEEKLY PAPER SUMMARY FAILED</b>\n\nError: {str(e)}\n\n📋 TradeCore Paper Scanner")
 
+def job_sync_check():
+    """07:00 — Daily T212 position sync check before pre-market scan."""
+    from monitoring.health_monitor import run_sync_check
+    run_sync_check()
 
 def start():
     """Register all jobs and start the scheduler."""
-
+    
+    scheduler.add_job(
+        job_sync_check,
+        CronTrigger(day_of_week="mon-fri", hour=6, minute=55),
+        id="sync_check",
+        name="T212 Sync Check"
+    )
     # ── Live Trading Jobs ───────────────────────────────────────────────────
 
     scheduler.add_job(

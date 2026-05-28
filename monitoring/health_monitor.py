@@ -13,6 +13,7 @@ Checks:
   - Memory / CPU usage
   - Process uptime
   - Kill switch status
+  - T212 position sync (daily at 07:00 — catches state drift)
 """
 
 import logging
@@ -32,6 +33,7 @@ STALE_PRICE_MINUTES = 30        # Alert if price data older than this during mar
 DB_MAX_SIZE_MB = 500            # Alert if database exceeds this size
 MEMORY_WARN_PCT = 85            # Alert if memory usage above this %
 MISSED_JOB_MINUTES = 10         # Alert if a scheduled job is more than this late
+CASH_DRIFT_THRESHOLD = 5.0      # Alert if cash differs by more than this amount
 
 # ── State tracking ──────────────────────────────────────────────────────────
 _start_time = time.time()
@@ -101,7 +103,6 @@ def check_data_freshness() -> Dict:
     try:
         from data.price_feed import get_latest_price
 
-        # Test with a liquid stock — just check we get a price back
         price = get_latest_price("AAPL")
 
         if price is None or price <= 0:
@@ -168,6 +169,110 @@ def check_t212_api() -> Dict:
     return result
 
 
+def check_t212_sync() -> Dict:
+    """
+    Compare TradeCore portfolio state against actual T212 positions.
+    Runs daily at 07:00 before the pre-market scan.
+    Alerts if positions or cash diverge — never auto-fixes, always alerts.
+
+    Divergence thresholds:
+      - Ticker in state but not in T212
+      - Ticker in T212 but not in state
+      - Share quantity differs by more than 0.01
+      - Cash differs by more than £5
+    """
+    result = {"status": "OK", "details": ""}
+
+    try:
+        from execution.t212_broker import T212Broker
+        from execution.order_manager import load_portfolio_state
+
+        broker = T212Broker()
+        state = load_portfolio_state()
+
+        # Get T212 positions
+        t212_positions = broker.get_open_positions()
+        t212_cash_data = broker.get_account_balance()
+
+        if not t212_positions and not t212_cash_data:
+            result["status"] = "SKIP"
+            result["details"] = "Could not fetch T212 data"
+            return result
+
+        # Build T212 position map — ticker -> quantity
+        # T212 tickers need converting back to yfinance format
+        from execution.t212_broker import _load_ticker_map
+        ticker_map = _load_ticker_map()
+        reverse_map = {v: k for k, v in ticker_map.items()}
+
+        t212_pos_map = {}
+        for pos in t212_positions:
+            t212_ticker = pos.get("ticker", "")
+            yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
+            t212_pos_map[yf_ticker] = float(pos.get("quantity", 0))
+
+        state_positions = state.get("positions", {})
+        state_cash = float(state.get("cash", 0))
+        t212_cash = float(t212_cash_data.get("free", 0))
+
+        divergences = []
+
+        # Check tickers in state but not in T212
+        for ticker in state_positions:
+            if ticker not in t212_pos_map:
+                divergences.append(f"  • {ticker} in state but NOT in T212")
+
+        # Check tickers in T212 but not in state
+        for ticker in t212_pos_map:
+            if ticker not in state_positions:
+                divergences.append(f"  • {ticker} in T212 but NOT in state")
+
+        # Check quantity mismatches
+        for ticker in state_positions:
+            if ticker in t212_pos_map:
+                state_qty = float(state_positions[ticker].get("shares", 0))
+                t212_qty = t212_pos_map[ticker]
+                diff = abs(state_qty - t212_qty)
+                if diff > 0.01:
+                    divergences.append(
+                        f"  • {ticker} qty mismatch: state={state_qty:.4f} T212={t212_qty:.4f}"
+                    )
+
+        # Check cash mismatch
+        cash_diff = abs(state_cash - t212_cash)
+        if cash_diff > CASH_DRIFT_THRESHOLD:
+            divergences.append(
+                f"  • Cash mismatch: state=£{state_cash:.2f} T212=£{t212_cash:.2f}"
+            )
+
+        if divergences:
+            result["status"] = "WARN"
+            result["details"] = f"{len(divergences)} divergence(s) found"
+            if _should_alert("t212_sync"):
+                details_text = "\n".join(divergences)
+                _send_health_alert(
+                    "Portfolio State Drift Detected",
+                    f"TradeCore state does not match T212:\n\n"
+                    f"{details_text}\n\n"
+                    f"<b>Action required:</b> manually reconcile portfolio_state.json",
+                    severity="CRITICAL"
+                )
+            logger.warning(f"T212 sync check failed: {len(divergences)} divergences")
+        else:
+            result["details"] = (
+                f"{len(state_positions)} positions match | "
+                f"Cash: state=£{state_cash:.2f} T212=£{t212_cash:.2f}"
+            )
+            logger.info(f"T212 sync check: all OK — {result['details']}")
+
+    except Exception as e:
+        result["status"] = "FAIL"
+        result["details"] = str(e)
+        logger.error(f"T212 sync check error: {e}")
+
+    return result
+
+
 def check_database() -> Dict:
     """Check SQLite database health — can we read/write, and how big is it?"""
     result = {"status": "OK", "details": ""}
@@ -175,7 +280,6 @@ def check_database() -> Dict:
     try:
         db_path = os.path.abspath(DB_PATH)
 
-        # Check file exists
         if not os.path.exists(db_path):
             result["status"] = "FAIL"
             result["details"] = "Database file not found"
@@ -187,7 +291,6 @@ def check_database() -> Dict:
                 )
             return result
 
-        # Check file size
         size_mb = os.path.getsize(db_path) / (1024 * 1024)
         result["details"] = f"{size_mb:.1f} MB"
 
@@ -201,7 +304,6 @@ def check_database() -> Dict:
                     severity="WARNING"
                 )
 
-        # Test read/write
         conn = sqlite3.connect(db_path)
         conn.execute("SELECT COUNT(*) FROM trades")
         conn.execute("""
@@ -213,9 +315,8 @@ def check_database() -> Dict:
         """)
         conn.execute("INSERT INTO health_checks (status) VALUES ('OK')")
         conn.commit()
-        # Clean up old health checks (keep last 100)
         conn.execute("""
-            DELETE FROM health_checks 
+            DELETE FROM health_checks
             WHERE id NOT IN (
                 SELECT id FROM health_checks ORDER BY id DESC LIMIT 100
             )
@@ -251,7 +352,9 @@ def check_memory() -> Dict:
             if _should_alert("memory_high"):
                 _send_health_alert(
                     "High Memory Usage",
-                    f"RAM: {memory.percent:.0f}% used ({memory.used // (1024*1024)} MB / {memory.total // (1024*1024)} MB)\n"
+                    f"RAM: {memory.percent:.0f}% used "
+                    f"({memory.used // (1024*1024)} MB / "
+                    f"{memory.total // (1024*1024)} MB)\n"
                     f"CPU: {cpu_pct:.0f}%",
                     severity="WARNING"
                 )
@@ -274,10 +377,9 @@ def check_scheduler_heartbeat() -> Dict:
     now = datetime.now()
     missed = []
 
-    # Expected schedules (job_name -> max minutes between runs)
     expected = {
-        "position_monitor": 20,     # Every 15 mins + buffer
-        "heartbeat": 65,            # Every 60 mins + buffer
+        "position_monitor": 20,
+        "heartbeat": 65,
     }
 
     for job_name, max_gap in expected.items():
@@ -360,7 +462,6 @@ def run_health_check() -> Dict:
         "kill_switch": check_kill_switch(),
     }
 
-    # Count issues
     statuses = [v["status"] for k, v in results.items() if k != "timestamp"]
     fails = statuses.count("FAIL") + statuses.count("CRITICAL")
     warns = statuses.count("WARN")
@@ -375,6 +476,17 @@ def run_health_check() -> Dict:
     return results
 
 
+def run_sync_check():
+    """
+    Standalone sync check — called from scheduler at 07:00.
+    Compares TradeCore state against T212 and alerts on divergence.
+    """
+    logger.info("=== T212 SYNC CHECK RUNNING ===")
+    result = check_t212_sync()
+    logger.info(f"T212 sync check complete: {result['status']} — {result['details']}")
+    return result
+
+
 # ── Daily Digest ────────────────────────────────────────────────────────────
 
 def send_daily_digest():
@@ -386,10 +498,8 @@ def send_daily_digest():
 
     logger.info("=== DAILY HEALTH DIGEST ===")
 
-    # Run a final check
     results = run_health_check()
 
-    # Build digest
     alert_count = len(_alerts_today)
 
     if alert_count == 0:
@@ -399,7 +509,6 @@ def send_daily_digest():
         emoji = "⚠️"
         headline = f"{alert_count} alert{'s' if alert_count != 1 else ''} today"
 
-    # System stats
     uptime = results["uptime"]["details"]
     memory = results["memory"]["details"]
     db = results["database"]["details"]
@@ -413,7 +522,6 @@ def send_daily_digest():
         f"<b>Database:</b> {db}",
     ]
 
-    # List today's alerts if any
     if _alerts_today:
         lines.append("")
         lines.append("<b>Alerts fired today:</b>")
@@ -421,7 +529,6 @@ def send_daily_digest():
             severity_icon = "🔴" if alert["severity"] == "CRITICAL" else "🟡"
             lines.append(f"  {severity_icon} {alert['time']} — {alert['title']}")
 
-    # Job run summary
     if _job_last_run:
         lines.append("")
         lines.append("<b>Last job runs:</b>")
@@ -439,6 +546,5 @@ def send_daily_digest():
     except Exception as e:
         logger.error(f"Daily health digest failed: {e}")
 
-    # Reset daily counters
     _alerts_today.clear()
     _alert_cooldowns.clear()
