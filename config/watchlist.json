@@ -11,7 +11,6 @@
     { "ticker": "GOOGL", "name": "Alphabet", "exchange": "NASDAQ", "currency": "USD" },
     { "ticker": "ASML", "name": "ASML", "exchange": "NASDAQ", "currency": "USD" },
     { "ticker": "IBM", "name": "IBM", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "VWCE.AS", "name": "Vanguard FTSE All-World", "exchange": "AMS", "currency": "EUR" },
     { "ticker": "LLY", "name": "Eli Lilly", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "UNH", "name": "UnitedHealth", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "ISRG", "name": "Intuitive Surgical", "exchange": "NASDAQ", "currency": "USD" },
