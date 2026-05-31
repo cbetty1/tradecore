@@ -421,7 +421,8 @@ def job_weekly_summary():
 
             closed = conn.execute(
                 """SELECT pnl FROM trades
-                   WHERE date(closed_at) >= ? AND status = 'CLOSED' AND pnl IS NOT NULL""",
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED'
+                   AND pnl IS NOT NULL AND paper = 0""",
                 (str(week_start),)
             ).fetchall()
 
@@ -434,7 +435,8 @@ def job_weekly_summary():
             attribution_rows = conn.execute(
                 """SELECT s.signal_type, t.pnl FROM trades t
                    LEFT JOIN signals s ON t.signal_id = s.id
-                   WHERE date(t.closed_at) >= ? AND t.status = 'CLOSED' AND t.pnl IS NOT NULL""",
+                   WHERE date(t.closed_at) >= ? AND t.status = 'CLOSED'
+                   AND t.pnl IS NOT NULL AND t.paper = 0""",
                 (str(week_start),)
             ).fetchall()
 
@@ -465,7 +467,7 @@ def job_weekly_summary():
                 (str(week_start),)
             ).fetchone()["count"]
 
-        go_live = __import__('datetime').date(2026, 5, 12)
+        go_live = __import__('datetime').date(2026, 5, 14)
         week_number = max(1, ((today - go_live).days // 7) + 1)
 
         send_weekly_summary(
