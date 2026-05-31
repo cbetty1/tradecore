@@ -272,7 +272,8 @@ def send_weekly_summary(portfolio_value: float, cash: float,
                         closed_wins: int = 0, closed_losses: int = 0,
                         avg_win: float = 0.0, avg_loss: float = 0.0,
                         signals_fired: int = 0, signals_acted: int = 0,
-                        week_number: int = 1) -> bool:
+                        week_number: int = 1,
+                        signal_attribution: dict = None) -> bool:
     """
     Send the weekly live performance summary — Friday 17:30.
     """
@@ -349,6 +350,20 @@ def send_weekly_summary(portfolio_value: float, cash: float,
             avg_win_str = f"+£{avg_win:.2f}" if avg_win >= 0 else f"-£{abs(avg_win):.2f}"
             avg_loss_str = f"-£{abs(avg_loss):.2f}"
             lines.append(f"<b>Avg win:</b> {avg_win_str} | <b>Avg loss:</b> {avg_loss_str}")
+    
+    # Signal attribution — which signal type is performing best
+    if signal_attribution:
+        lines.append(f"")
+        lines.append(f"<b>Signal performance:</b>")
+        for sig_type, stats in signal_attribution.items():
+            w = stats.get("wins", 0)
+            l = stats.get("losses", 0)
+            total = w + l
+            if total > 0:
+                wr = (w / total) * 100
+                avg = stats.get("avg_pnl", 0.0)
+                avg_str = f"+£{avg:.2f}" if avg >= 0 else f"-£{abs(avg):.2f}"
+                lines.append(f"  • {sig_type}: {w}W/{l}L ({wr:.0f}%) avg {avg_str}")
 
     # Signal stats
     if signals_fired > 0:

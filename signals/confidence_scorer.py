@@ -50,31 +50,34 @@ def get_market_regime() -> str:
 def get_volume_confirmation(df: pd.DataFrame) -> float:
     """
     Check if recent volume confirms the price move.
-    Compares latest volume to 20-day average volume.
+    Uses a 3-day average vs 20-day average for a smoother, less noisy read.
 
     Returns:
-        Adjustment score between -10.0 and +10.0
+        Adjustment score between -15.0 and +15.0
     """
     try:
         volume = df["Volume"].squeeze()
         avg_volume = float(volume.rolling(20).mean().iloc[-1])
-        latest_volume = float(volume.iloc[-1])
+        recent_volume = float(volume.iloc[-3:].mean())  # 3-day avg, less noisy
 
-        ratio = latest_volume / avg_volume if avg_volume > 0 else 1.0
+        ratio = recent_volume / avg_volume if avg_volume > 0 else 1.0
 
-        if ratio >= 1.5:
-            return 10.0    # Strong volume confirmation
+        if ratio >= 2.0:
+            return 15.0    # Exceptional volume — strong conviction
+        elif ratio >= 1.5:
+            return 10.0    # Strong confirmation
         elif ratio >= 1.1:
             return 5.0     # Moderate confirmation
         elif ratio >= 0.8:
             return 0.0     # Neutral
+        elif ratio >= 0.5:
+            return -5.0    # Below average — weak signal
         else:
-            return -10.0   # Low volume — weak signal
+            return -15.0   # Very low volume — don't trust the signal
 
     except Exception as e:
         logger.warning(f"Volume confirmation failed: {e}")
         return 0.0
-
 
 def get_sector_adjustment(ticker: str) -> float:
     """

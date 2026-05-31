@@ -19,7 +19,7 @@ def _load_risk_limits() -> dict:
         return {
             "max_drawdown_pct": 8.0,
             "max_position_pct": 15.0,
-            "max_open_positions": 5,
+            "max_open_positions": 6,
             "min_confidence_threshold": 65.0,
             "cash_floor_gbp": 20.0,
             "daily_loss_limit_pct": 3.0,
@@ -39,7 +39,7 @@ def layout():
     # Load live risk limits — all values come from here, nothing hardcoded
     limits = _load_risk_limits()
     max_drawdown = limits.get("max_drawdown_pct", 8.0)
-    max_positions = limits.get("max_open_positions", 5)
+    max_positions = limits.get("max_open_positions", 6)
 
     kill = is_kill_switch_active(
         max_drawdown_pct=max_drawdown,
