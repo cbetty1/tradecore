@@ -309,8 +309,6 @@ def job_daily_report():
         snapshots = get_snapshots(2)
         if len(snapshots) >= 2:
             daily_pnl = snapshots[0]["total_value"] - snapshots[1]["total_value"]
-            # Sanity check — if daily P&L is more than 50% of portfolio it's a bad snapshot
-            # This happens when state drifts and snapshots are from different states
             if abs(daily_pnl) > (portfolio_value * 0.5):
                 logger.warning(f"Daily P&L sanity check failed: {daily_pnl:.2f} — capping at 0")
                 daily_pnl = 0.0
@@ -432,6 +430,28 @@ def job_weekly_summary():
             avg_win = sum(wins) / len(wins) if wins else 0.0
             avg_loss = sum(losses) / len(losses) if losses else 0.0
 
+            # ── Performance attribution — wins/losses/avg P&L per signal type ──
+            attribution_rows = conn.execute(
+                """SELECT signal_type, pnl FROM trades
+                   WHERE date(closed_at) >= ? AND status = 'CLOSED' AND pnl IS NOT NULL""",
+                (str(week_start),)
+            ).fetchall()
+
+            signal_attribution = {}
+            for row in attribution_rows:
+                sig = row["signal_type"] or "UNKNOWN"
+                if sig not in signal_attribution:
+                    signal_attribution[sig] = {"wins": 0, "losses": 0, "pnls": []}
+                signal_attribution[sig]["pnls"].append(row["pnl"])
+                if row["pnl"] > 0:
+                    signal_attribution[sig]["wins"] += 1
+                else:
+                    signal_attribution[sig]["losses"] += 1
+
+            for sig in signal_attribution:
+                pnls = signal_attribution[sig].pop("pnls")
+                signal_attribution[sig]["avg_pnl"] = sum(pnls) / len(pnls) if pnls else 0.0
+
             signals_fired = conn.execute(
                 """SELECT COUNT(*) as count FROM signals
                    WHERE date(created_at) >= ?""",
@@ -462,7 +482,8 @@ def job_weekly_summary():
             avg_loss=avg_loss,
             signals_fired=signals_fired,
             signals_acted=signals_acted,
-            week_number=week_number
+            week_number=week_number,
+            signal_attribution=signal_attribution
         )
 
         logger.info("Weekly summary sent")
@@ -504,20 +525,23 @@ def job_weekly_paper_summary():
         from notifications.telegram import send_message
         send_message(f"⚠️ <b>WEEKLY PAPER SUMMARY FAILED</b>\n\nError: {str(e)}\n\n📋 TradeCore Paper Scanner")
 
+
 def job_sync_check():
-    """07:00 — Daily T212 position sync check before pre-market scan."""
+    """06:55 — Daily T212 position sync check before pre-market scan."""
     from monitoring.health_monitor import run_sync_check
     run_sync_check()
 
+
 def start():
     """Register all jobs and start the scheduler."""
-    
+
     scheduler.add_job(
         job_sync_check,
         CronTrigger(day_of_week="mon-fri", hour=6, minute=55),
         id="sync_check",
         name="T212 Sync Check"
     )
+
     # ── Live Trading Jobs ───────────────────────────────────────────────────
 
     scheduler.add_job(
@@ -627,6 +651,7 @@ def start():
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
     logger.info("  ── Live Trading ──────────────────────")
+    logger.info("  06:55        T212 sync check")
     logger.info("  07:00        Pre-market scan + signal summary")
     logger.info("  08:00-21:00  Position monitor (every 15 mins)")
     logger.info("  12:00        Midday scan (execution only)")
@@ -639,8 +664,8 @@ def start():
     logger.info("  21:00        Daily health digest")
     logger.info("  21:15        Daily report")
     logger.info("  Fri 17:30    Weekly live summary")
+    logger.info("  Fri 20:30    Weekly paper summary")
     logger.info("  Fri 21:30    Weekly paper analysis PDF")
-    logger.info("  Fri 21:45    Weekly paper summary")
     logger.info("=" * 50)
 
     try:
