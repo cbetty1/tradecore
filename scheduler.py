@@ -432,8 +432,9 @@ def job_weekly_summary():
 
             # ── Performance attribution — wins/losses/avg P&L per signal type ──
             attribution_rows = conn.execute(
-                """SELECT signal_type, pnl FROM trades
-                   WHERE date(closed_at) >= ? AND status = 'CLOSED' AND pnl IS NOT NULL""",
+                """SELECT s.signal_type, t.pnl FROM trades t
+                   LEFT JOIN signals s ON t.signal_id = s.id
+                   WHERE date(t.closed_at) >= ? AND t.status = 'CLOSED' AND t.pnl IS NOT NULL""",
                 (str(week_start),)
             ).fetchall()
 
