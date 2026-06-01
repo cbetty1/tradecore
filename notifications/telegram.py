@@ -88,7 +88,7 @@ def send_trade_alert(action: str, ticker: str, price: float,
         ]
     else:
         emoji = "🔴" if (pnl or 0) < 0 else "💰"
-        pnl_str = f"+£{pnl:.2f}" if pnl >= 0 else f"-£{abs(pnl):.2f}"
+        pnl_str = f"+£{pnl:.2f}" if (pnl is not None and pnl >= 0) else f"-£{abs(pnl):.2f}" if pnl is not None else "N/A"
         lines = [
             f"{emoji} <b>TRADE EXECUTED — SELL</b>",
             f"",

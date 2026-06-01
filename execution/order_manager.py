@@ -221,7 +221,8 @@ def run_scan(watchlist: list) -> list:
                         price=current_price,
                         shares=shares,
                         amount=round(sell_value, 2),
-                        confidence=0
+                        confidence=0,
+                        pnl=round(pnl, 2)
                     )
             # Update state
             cash += sell_value
