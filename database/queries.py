@@ -69,16 +69,16 @@ def close_trade(trade_id, pnl):
 
 # ── Portfolio Snapshots ───────────────────────────────────────────────────────
 
-def insert_snapshot(snapshot_date, total_value, cash_balance, invested_value, daily_pnl=None, total_pnl=None):
+def insert_snapshot(snapshot_date, total_value, cash_balance, invested_value, daily_pnl=None, total_pnl=None, paper=0):
     """Insert a daily portfolio snapshot."""
     sql = """
         INSERT OR REPLACE INTO portfolio_snapshots
-        (snapshot_date, total_value, cash_balance, invested_value, daily_pnl, total_pnl)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (snapshot_date, total_value, cash_balance, invested_value, daily_pnl, total_pnl, paper)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """
     try:
         with get_connection() as conn:
-            conn.execute(sql, (snapshot_date, total_value, cash_balance, invested_value, daily_pnl, total_pnl))
+            conn.execute(sql, (snapshot_date, total_value, cash_balance, invested_value, daily_pnl, total_pnl, paper))
     except Exception as e:
         logger.error(f"Failed to insert snapshot: {e}")
         raise
@@ -86,6 +86,6 @@ def insert_snapshot(snapshot_date, total_value, cash_balance, invested_value, da
 
 def get_snapshots(limit=30):
     """Fetch recent portfolio snapshots for equity curve."""
-    sql = "SELECT * FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT ?"
+    sql = "SELECT * FROM portfolio_snapshots WHERE paper = 0 ORDER BY snapshot_date DESC LIMIT ?"
     with get_connection() as conn:
         return conn.execute(sql, (limit,)).fetchall()

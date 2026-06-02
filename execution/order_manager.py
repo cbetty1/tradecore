@@ -383,7 +383,8 @@ def run_scan(watchlist: list) -> list:
         snapshot_date=str(datetime.now().date()),
         total_value=portfolio_value,
         cash_balance=cash,
-        invested_value=portfolio_value - cash
+        invested_value=portfolio_value - cash,
+        paper=0
     )
 
     logger.info(f"Scan complete [{mode_label}] | {len(actions)} actions | Portfolio=£{portfolio_value:.2f}")

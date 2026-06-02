@@ -465,7 +465,8 @@ def run_paper_scan() -> dict:
         snapshot_date=str(datetime.now().date()),
         total_value=portfolio_value,
         cash_balance=cash,
-        invested_value=portfolio_value - cash
+        invested_value=portfolio_value - cash,
+        paper=1
     )
 
     total_pnl = portfolio_value - starting_capital

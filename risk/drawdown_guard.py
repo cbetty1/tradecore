@@ -17,7 +17,7 @@ def get_current_drawdown(starting_capital: float) -> float:
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                "SELECT total_value FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 1"
+                "SELECT total_value FROM portfolio_snapshots WHERE paper = 0 ORDER BY snapshot_date DESC LIMIT 1"
             ).fetchall()
 
         if not rows:
@@ -60,7 +60,7 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
     try:
         with get_connection() as conn:
             snapshots = conn.execute(
-                "SELECT * FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 2"
+                "SELECT * FROM portfolio_snapshots WHERE paper = 0 ORDER BY snapshot_date DESC LIMIT 2"
             ).fetchall()
 
         if len(snapshots) < 2:
@@ -85,7 +85,7 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
         with get_connection() as conn:
             today_snapshots = conn.execute(
                 "SELECT total_value FROM portfolio_snapshots "
-                "WHERE snapshot_date = ? ORDER BY recorded_at ASC",
+                "WHERE paper = 0 AND snapshot_date = ? ORDER BY recorded_at ASC",
                 (today_str,)
             ).fetchall()
 
