@@ -237,9 +237,10 @@ def reconcile_state_from_t212():
             t212_ticker = pos.get("instrument", {}).get("ticker", "")
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
             if yf_ticker in state["positions"]:
-                # Preserve our metadata, update shares from T212
-                new_positions[yf_ticker] = state["positions"][yf_ticker]
-                new_positions[yf_ticker]["shares"] = float(pos.get("quantityAvailableForTrading", 0))
+                qty = float(pos.get("quantityAvailableForTrading", 0))
+                if qty > 0:
+                    new_positions[yf_ticker] = state["positions"][yf_ticker]
+                    new_positions[yf_ticker]["shares"] = qty
 
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
