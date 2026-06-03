@@ -534,6 +534,25 @@ def job_sync_check():
     from monitoring.health_monitor import run_sync_check
     run_sync_check()
 
+def job_morning_snapshot():
+    """07:05 — Write opening portfolio snapshot for daily loss baseline."""
+    logger.info("=== MORNING SNAPSHOT ===")
+    try:
+        from execution.order_manager import load_portfolio_state, get_portfolio_value
+        from database.queries import insert_snapshot
+        state = load_portfolio_state()
+        pv = get_portfolio_value(state)
+        insert_snapshot(
+            snapshot_date=str(datetime.now().date()),
+            total_value=pv,
+            cash_balance=state["cash"],
+            invested_value=pv - state["cash"],
+            paper=0
+        )
+        logger.info(f"Morning snapshot written: £{pv:.2f}")
+    except Exception as e:
+        logger.error(f"Morning snapshot failed: {e}")
+
 
 def start():
     """Register all jobs and start the scheduler."""
@@ -543,6 +562,13 @@ def start():
         CronTrigger(day_of_week="mon-fri", hour=6, minute=55),
         id="sync_check",
         name="T212 Sync Check"
+    )
+
+    scheduler.add_job(
+        job_morning_snapshot,
+        CronTrigger(day_of_week="mon-fri", hour=7, minute=5),
+        id="morning_snapshot",
+        name="Morning Snapshot"
     )
 
     # ── Live Trading Jobs ───────────────────────────────────────────────────
@@ -670,6 +696,7 @@ def start():
     logger.info("  Fri 20:30    Weekly paper summary")
     logger.info("  Fri 21:30    Weekly paper analysis PDF")
     logger.info("=" * 50)
+    logger.info("  07:05        Morning portfolio snapshot")
 
     try:
         scheduler.start()
