@@ -209,8 +209,8 @@ def check_t212_sync() -> Dict:
 def reconcile_state_from_t212():
     """
     Force-sync portfolio state from T212 after a live sell.
-    Rebuilds positions and cash from T212 as the source of truth.
-    Preserves entry_price, highest_price, trade_id from existing state.
+    Only removes positions T212 explicitly confirms are closed.
+    Leaves unmatched positions alone to prevent state wipe on ticker map failures.
     """
     try:
         from execution.t212_broker import T212Broker, _load_ticker_map
@@ -229,18 +229,28 @@ def reconcile_state_from_t212():
         ticker_map = _load_ticker_map()
         reverse_map = {v: k for k, v in ticker_map.items()}
 
-        # Rebuild positions — only keep what T212 says we own
-        new_positions = {}
+        # Start with everything in state — only remove what T212 confirms is gone
+        new_positions = dict(state["positions"])
+
+        # Update shares for positions T212 confirms we own
         for pos in (t212_positions or []):
             if pos.get("quantityInPies", 0) > 0:
                 continue
             t212_ticker = pos.get("instrument", {}).get("ticker", "")
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
-            if yf_ticker in state["positions"]:
-                qty = float(pos.get("quantityAvailableForTrading", 0))
-                if qty > 0:
-                    new_positions[yf_ticker] = state["positions"][yf_ticker]
-                    new_positions[yf_ticker]["shares"] = qty
+            qty = float(pos.get("quantityAvailableForTrading", 0))
+            if qty > 0 and yf_ticker in new_positions:
+                new_positions[yf_ticker]["shares"] = qty
+
+        # Only remove positions T212 explicitly shows with 0 quantity
+        for pos in (t212_positions or []):
+            if pos.get("quantityInPies", 0) > 0:
+                continue
+            t212_ticker = pos.get("instrument", {}).get("ticker", "")
+            yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
+            qty = float(pos.get("quantityAvailableForTrading", 0))
+            if qty == 0 and yf_ticker in new_positions:
+                del new_positions[yf_ticker]
 
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
