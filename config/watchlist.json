@@ -21,7 +21,12 @@
     { "ticker": "NKE", "name": "Nike", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "CAT", "name": "Caterpillar", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "HON", "name": "Honeywell", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "XOM", "name": "ExxonMobil", "exchange": "NYSE", "currency": "USD" }
+    { "ticker": "XOM", "name": "ExxonMobil", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "HPQ", "name": "HP Inc", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "DELL", "name": "Dell Technologies", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "CRM", "name": "Salesforce", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "ORCL", "name": "Oracle", "exchange": "NYSE", "currency": "USD" },
+    { "ticker": "INTC", "name": "Intel", "exchange": "NASDAQ", "currency": "USD" }
   ],
   "sectors": [
     { "ticker": "XLK", "name": "Technology" },

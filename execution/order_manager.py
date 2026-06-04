@@ -23,6 +23,8 @@ STATE_FILE = os.path.join(os.path.dirname(__file__), "..", "portfolio_state.json
 RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk_limits.json")
 
 BREAKOUT_PAPER_ONLY = True
+EARNINGS_DRIFT_PAPER_ONLY = True  # Paper only until signal proves itself
+EARNINGS_DRIFT_MIN_CONFIDENCE = 70.0  # Higher bar — catalyst-driven, we want conviction
 
 
 def is_trading_day() -> bool:
@@ -182,10 +184,8 @@ def run_scan(watchlist: list) -> list:
                         confidence=0,
                         pnl=round(pnl, 2)
                     )
-                    # Auto-reconcile state from T212 after every live sell
                     from monitoring.health_monitor import reconcile_state_from_t212
                     reconcile_state_from_t212()
-                    # Reload state and cash after reconcile
                     state = load_portfolio_state()
                     cash = state["cash"]
                     continue
@@ -195,7 +195,6 @@ def run_scan(watchlist: list) -> list:
             state["cash"] = cash
             del state["positions"][ticker]
 
-            # Log to database
             trade_id = pos.get("trade_id")
             if trade_id:
                 close_trade(trade_id, pnl)
@@ -218,9 +217,13 @@ def run_scan(watchlist: list) -> list:
     open_tickers = list(state["positions"].keys())
     from signals.mean_reversion import MeanReversionSignal
     from signals.breakout import BreakoutSignal
+    from signals.earnings_drift import EarningsDriftSignal
+    from data.earnings_calendar import is_earnings_safe, had_recent_earnings
+
     signal_engine = MomentumSignal()
     reversion_engine = MeanReversionSignal()
     breakout_engine = BreakoutSignal()
+    drift_engine = EarningsDriftSignal()
 
     for stock in watchlist:
         ticker = stock["ticker"]
@@ -245,6 +248,31 @@ def run_scan(watchlist: list) -> list:
         if not current_price:
             continue
 
+        # ── Earnings Drift — paper only, evaluated independently ──────────
+        # Looks for stocks that had earnings in the last 1-2 days with a
+        # confirmed gap + volume. Runs BEFORE the earnings safety skip below.
+        if had_recent_earnings(ticker, days=2):
+            raw_drift = drift_engine.evaluate(ticker, df)
+            if raw_drift.direction == "BUY" and raw_drift.confidence >= EARNINGS_DRIFT_MIN_CONFIDENCE:
+                logger.info(f"📊 PAPER DRIFT: {ticker} | Conf={raw_drift.confidence:.1f}% | {raw_drift.notes}")
+                insert_signal(
+                    ticker=ticker,
+                    signal_type="EARNINGS_DRIFT_PAPER",
+                    direction=raw_drift.direction,
+                    confidence=raw_drift.confidence,
+                    price=current_price,
+                    regime=None,
+                    notes=f"[PAPER] {raw_drift.notes}"
+                )
+                from notifications.telegram import send_earnings_drift_alert
+                send_earnings_drift_alert(
+                    ticker=ticker,
+                    price=current_price,
+                    confidence=raw_drift.confidence,
+                    notes=raw_drift.notes
+                )
+
+        # ── Standard signal pipeline (skips earnings window as before) ────
         raw_momentum = signal_engine.evaluate(ticker, df)
         raw_reversion = reversion_engine.evaluate(ticker, df)
         raw_breakout = breakout_engine.evaluate(ticker, df)
@@ -270,13 +298,11 @@ def run_scan(watchlist: list) -> list:
 
         if raw_reversion.confidence > raw_momentum.confidence:
             raw_signal = raw_reversion
-            logger.info(f"{ticker} — using mean reversion signal ({raw_reversion.confidence:.1f}% vs momentum {raw_momentum.confidence:.1f}%)")
         else:
             raw_signal = raw_momentum
 
         if not BREAKOUT_PAPER_ONLY and raw_breakout.confidence > raw_signal.confidence:
             raw_signal = raw_breakout
-            logger.info(f"{ticker} — using breakout signal ({raw_breakout.confidence:.1f}% vs momentum {raw_momentum.confidence:.1f}% / reversion {raw_reversion.confidence:.1f}%)")
 
         final_signal = score_signal(raw_signal, df)
         logger.info(f"{ticker} | {final_signal.direction} | Conf={final_signal.confidence:.1f}%")
@@ -286,7 +312,7 @@ def run_scan(watchlist: list) -> list:
         if final_signal.direction != "BUY":
             continue
 
-        from data.earnings_calendar import is_earnings_safe
+        # Standard earnings safety check — still skips momentum entries near earnings
         if not is_earnings_safe(ticker):
             logger.info(f"Earnings approaching for {ticker} — skipping entry")
             continue
@@ -298,7 +324,7 @@ def run_scan(watchlist: list) -> list:
             cash_idle = cash_pct_of_portfolio >= CASH_DEPLOYMENT_THRESHOLD_PCT
 
             if cash_idle and high_confidence:
-                logger.info(f"Cash deployment override — Cash={cash_pct_of_portfolio:.1f}% of portfolio | Confidence={final_signal.confidence:.1f}% — Overriding correlation block for {ticker}")
+                logger.info(f"Cash deployment override — Cash={cash_pct_of_portfolio:.1f}% | Conf={final_signal.confidence:.1f}% — Overriding correlation block for {ticker}")
             else:
                 logger.info(f"Correlation block: {corr_check['reason']}")
                 continue

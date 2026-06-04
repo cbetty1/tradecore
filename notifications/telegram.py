@@ -603,3 +603,28 @@ def send_weekly_paper_summary(summary: dict) -> bool:
     lines.append(f"📋 TradeCore Paper Scanner — Week {week_number}")
 
     return send_message("\n".join(lines))
+
+# ── Appended: send_earnings_drift_alert ──────────────────────────────────────
+
+def send_earnings_drift_alert(ticker: str, price: float,
+                               confidence: float, notes: str = "") -> bool:
+    """
+    Paper-only earnings drift signal alert.
+    Fires when a stock had earnings in the last 2 days and shows
+    confirmed gap + volume continuation. Not traded — data collection only.
+    """
+    short_notes = notes[:200] if notes else ""
+
+    message = (
+        f"📊 <b>PAPER DRIFT SIGNAL</b>\n"
+        f"\n"
+        f"<b>Stock:</b> {ticker}\n"
+        f"<b>Price:</b> £{price:.2f}\n"
+        f"<b>Confidence:</b> {confidence:.1f}%\n"
+        f"<b>Signal:</b> {short_notes}\n"
+        f"\n"
+        f"<i>Post-earnings drift — paper only. Collecting data for review.</i>\n"
+        f"\n"
+        f"📊 TradeCore PAPER DRIFT"
+    )
+    return send_message(message)
