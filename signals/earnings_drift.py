@@ -7,6 +7,8 @@ from signals.base_signal import BaseSignal, SignalResult
 logger = logging.getLogger(__name__)
 
 class EarningsDriftSignal(BaseSignal):
+    def __init__(self):
+        super().__init__("earnings_drift")
     """
     Post-earnings announcement drift (PEAD) signal.
     Fires the morning AFTER earnings when a significant gap + volume confirms
