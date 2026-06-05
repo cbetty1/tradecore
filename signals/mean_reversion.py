@@ -31,12 +31,26 @@ class MeanReversionSignal(BaseSignal):
             return SignalResult(ticker, "MEAN_REVERSION", "NONE", 0.0, 0.0,
                                 notes="Insufficient data")
 
-        try:
+        try:    
             close = df["Close"].squeeze()
             score = 0.0
             notes = []
 
+            # ── ATR volatility filter ─────────────────────────────────────────
+            atr = ta.volatility.AverageTrueRange(
+                high=df["High"].squeeze(),
+                low=df["Low"].squeeze(),
+                close=close,
+                window=14
+            ).average_true_range()
+            atr_pct = float(atr.iloc[-1]) / float(close.iloc[-1]) * 100
+            if atr_pct > 3.5:
+                return SignalResult(ticker, "MEAN_REVERSION", "NONE", 0.0,
+                                    float(close.iloc[-1]),
+                                    notes=f"Skipped — too volatile for mean reversion (ATR {atr_pct:.1f}%)")
+
             # ── Bollinger Bands (40 pts) ──────────────────────────────────────
+
             bb = ta.volatility.BollingerBands(close=close, window=20, window_dev=2)
             bb_upper = float(bb.bollinger_hband().iloc[-1])
             bb_lower = float(bb.bollinger_lband().iloc[-1])
