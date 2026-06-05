@@ -1,7 +1,7 @@
 {
   "max_drawdown_pct": 8.0,
   "max_position_pct": 20.0,
-  "max_open_positions": 5,
+  "max_open_positions": 6,
   "min_confidence_threshold": 65.0,
   "cash_floor_gbp": 30.0,
   "daily_loss_limit_pct": 3.0,
