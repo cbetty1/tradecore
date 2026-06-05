@@ -273,24 +273,8 @@ def job_daily_report():
     """21:15 — End of day performance report after US market close."""
     from monitoring.health_monitor import record_job_run
     record_job_run("daily_report")
-
-    try:
-        from database.db import get_connection
-        today = str(datetime.now().date())
-        with get_connection() as conn:
-            already_sent = conn.execute(
-                """SELECT COUNT(*) as count FROM portfolio_snapshots
-                   WHERE snapshot_date = ?
-                   AND recorded_at > datetime('now', '-1 hour')""",
-                (today,)
-            ).fetchone()["count"]
-        if already_sent > 1:
-            logger.info("Daily report already sent today — skipping duplicate")
-            return
-    except Exception as e:
-        logger.warning(f"Duplicate check failed: {e}")
-
     logger.info("=== DAILY REPORT GENERATING ===")
+    
     try:
         from execution.order_manager import load_portfolio_state, get_portfolio_value
         from database.queries import get_snapshots
