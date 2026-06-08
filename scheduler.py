@@ -53,7 +53,7 @@ def job_pre_market_scan():
                 "price": price
             })
 
-        send_signal_summary(signals)
+        send_signal_summary(signals, positions=state.get("positions", {}))
         logger.info(f"Pre-market scan complete — {len(signals)} signals evaluated")
 
     except Exception as e:
@@ -274,7 +274,7 @@ def job_daily_report():
     from monitoring.health_monitor import record_job_run
     record_job_run("daily_report")
     logger.info("=== DAILY REPORT GENERATING ===")
-    
+
     try:
         from execution.order_manager import load_portfolio_state, get_portfolio_value
         from database.queries import get_snapshots
@@ -351,6 +351,15 @@ def job_health_check():
     from monitoring.health_monitor import run_health_check
     run_health_check()
 
+def job_edge_scan():
+    """20:45 — EdgeScanner mid-cap momentum scan. Silent DB logging only."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("edge_scan")
+    try:
+        from edge_scanner.scanner import run_edge_scan
+        run_edge_scan()
+    except Exception as e:
+        logger.error(f"Edge scan failed: {e}")
 
 def job_daily_health_digest():
     """21:00 — Daily health summary to Telegram."""
@@ -660,6 +669,12 @@ def start():
         id="daily_health_digest",
         name="Daily Health Digest"
     )
+    scheduler.add_job(
+        job_edge_scan,
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=45),
+        id="edge_scan",
+        name="Edge Scanner"
+    )
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
@@ -681,6 +696,9 @@ def start():
     logger.info("  Fri 21:30    Weekly paper analysis PDF")
     logger.info("=" * 50)
     logger.info("  07:05        Morning portfolio snapshot")
+    logger.info("  ── Edge Scanner ──────────────────────")
+    logger.info("  20:45        Edge scan — mid-cap momentum (silent)")
+
 
     try:
         scheduler.start()

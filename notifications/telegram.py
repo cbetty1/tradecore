@@ -190,19 +190,17 @@ def send_kill_switch_alert(reason: str) -> bool:
     return send_message(message)
 
 
-def send_signal_summary(signals: list) -> bool:
-    """
-    Send a pre-market signal summary.
-
-    Args:
-        signals: List of dicts with ticker, direction, confidence
-    """
+def send_signal_summary(signals: list, positions: dict = None) -> bool:
     mode = _get_mode_label()
 
     buy_signals = [s for s in signals if s["direction"] == "BUY"]
     sell_signals = [s for s in signals if s["direction"] == "SELL"]
     watch_signals = [s for s in signals if s["direction"] == "WATCH"]
 
+    # Only show SELL signals for stocks you actually hold
+    if positions:
+        sell_signals = [s for s in sell_signals if s["ticker"] in positions]
+        
     lines = [
         f"📡 <b>TRADECORE SIGNAL SUMMARY</b>",
         f"<i>Market scan complete</i>",
