@@ -1,0 +1,448 @@
+{
+  "universe": [
+    {
+      "ticker": "APA",
+      "name": "APA Corporation"
+    },
+    {
+      "ticker": "ARW",
+      "name": "Arrow Electronics"
+    },
+    {
+      "ticker": "AFG",
+      "name": "American Financial Group"
+    },
+    {
+      "ticker": "ANF",
+      "name": "Abercrombie & Fitch"
+    },
+    {
+      "ticker": "AXS",
+      "name": "Axis Capital"
+    },
+    {
+      "ticker": "BL",
+      "name": "BlackLine"
+    },
+    {
+      "ticker": "BR",
+      "name": "Broadridge Financial"
+    },
+    {
+      "ticker": "CBT",
+      "name": "Cabot Corp"
+    },
+    {
+      "ticker": "CFR",
+      "name": "Cullen/Frost Bankers"
+    },
+    {
+      "ticker": "CHE",
+      "name": "Chemed Corp"
+    },
+    {
+      "ticker": "CLH",
+      "name": "Clean Harbors"
+    },
+    {
+      "ticker": "CRUS",
+      "name": "Cirrus Logic"
+    },
+    {
+      "ticker": "CUBE",
+      "name": "CubeSmart"
+    },
+    {
+      "ticker": "CW",
+      "name": "Curtiss-Wright"
+    },
+    {
+      "ticker": "DKS",
+      "name": "Dick's Sporting Goods"
+    },
+    {
+      "ticker": "DT",
+      "name": "Dynatrace"
+    },
+    {
+      "ticker": "EGP",
+      "name": "EastGroup Properties"
+    },
+    {
+      "ticker": "EME",
+      "name": "EMCOR Group"
+    },
+    {
+      "ticker": "ENSG",
+      "name": "Ensign Group"
+    },
+    {
+      "ticker": "EXP",
+      "name": "Eagle Materials"
+    },
+    {
+      "ticker": "FAF",
+      "name": "First American Financial"
+    },
+    {
+      "ticker": "FHN",
+      "name": "First Horizon"
+    },
+    {
+      "ticker": "FLO",
+      "name": "Flowers Foods"
+    },
+    {
+      "ticker": "FR",
+      "name": "First Industrial Realty"
+    },
+    {
+      "ticker": "FRT",
+      "name": "Federal Realty Investment"
+    },
+    {
+      "ticker": "FULT",
+      "name": "Fulton Financial"
+    },
+    {
+      "ticker": "GGG",
+      "name": "Graco"
+    },
+    {
+      "ticker": "GMED",
+      "name": "Globus Medical"
+    },
+    {
+      "ticker": "GPK",
+      "name": "Graphic Packaging"
+    },
+    {
+      "ticker": "GXO",
+      "name": "GXO Logistics"
+    },
+    {
+      "ticker": "HLNE",
+      "name": "Hamilton Lane"
+    },
+    {
+      "ticker": "HRI",
+      "name": "Herc Holdings"
+    },
+    {
+      "ticker": "INGR",
+      "name": "Ingredion"
+    },
+    {
+      "ticker": "JHG",
+      "name": "Janus Henderson"
+    },
+    {
+      "ticker": "KBR",
+      "name": "KBR Inc"
+    },
+    {
+      "ticker": "KNX",
+      "name": "Knight-Swift Transportation"
+    },
+    {
+      "ticker": "KRC",
+      "name": "Kilroy Realty"
+    },
+    {
+      "ticker": "LANC",
+      "name": "Lancaster Colony"
+    },
+    {
+      "ticker": "LBRT",
+      "name": "Liberty Oilfield Services"
+    },
+    {
+      "ticker": "LEA",
+      "name": "Lear Corp"
+    },
+    {
+      "ticker": "LNC",
+      "name": "Lincoln National"
+    },
+    {
+      "ticker": "LNW",
+      "name": "Light & Wonder"
+    },
+    {
+      "ticker": "LOPE",
+      "name": "Grand Canyon Education"
+    },
+    {
+      "ticker": "LPLA",
+      "name": "LPL Financial"
+    },
+    {
+      "ticker": "MANH",
+      "name": "Manhattan Associates"
+    },
+    {
+      "ticker": "MAN",
+      "name": "ManpowerGroup"
+    },
+    {
+      "ticker": "MEDP",
+      "name": "Medpace Holdings"
+    },
+    {
+      "ticker": "MGY",
+      "name": "Magnolia Oil & Gas"
+    },
+    {
+      "ticker": "MMS",
+      "name": "Maximus"
+    },
+    {
+      "ticker": "MSA",
+      "name": "MSA Safety"
+    },
+    {
+      "ticker": "MTZ",
+      "name": "MasTec"
+    },
+    {
+      "ticker": "MUSA",
+      "name": "Murphy USA"
+    },
+    {
+      "ticker": "NEU",
+      "name": "NewMarket Corp"
+    },
+    {
+      "ticker": "NFG",
+      "name": "National Fuel Gas"
+    },
+    {
+      "ticker": "NNN",
+      "name": "NNN REIT"
+    },
+    {
+      "ticker": "NOG",
+      "name": "Northern Oil and Gas"
+    },
+    {
+      "ticker": "NSP",
+      "name": "Insperity"
+    },
+    {
+      "ticker": "NVT",
+      "name": "nVent Electric"
+    },
+    {
+      "ticker": "OLLI",
+      "name": "Ollie's Bargain Outlet"
+    },
+    {
+      "ticker": "OLN",
+      "name": "Olin Corp"
+    },
+    {
+      "ticker": "ONB",
+      "name": "Old National Bancorp"
+    },
+    {
+      "ticker": "ONTO",
+      "name": "Onto Innovation"
+    },
+    {
+      "ticker": "OSK",
+      "name": "Oshkosh Corp"
+    },
+    {
+      "ticker": "PEGA",
+      "name": "Pegasystems"
+    },
+    {
+      "ticker": "PLNT",
+      "name": "Planet Fitness"
+    },
+    {
+      "ticker": "PNFP",
+      "name": "Pinnacle Financial Partners"
+    },
+    {
+      "ticker": "POOL",
+      "name": "Pool Corp"
+    },
+    {
+      "ticker": "PR",
+      "name": "Permian Resources"
+    },
+    {
+      "ticker": "PSN",
+      "name": "Parsons Corp"
+    },
+    {
+      "ticker": "R",
+      "name": "Ryder System"
+    },
+    {
+      "ticker": "RBC",
+      "name": "RBC Bearings"
+    },
+    {
+      "ticker": "RELY",
+      "name": "Remitly Global"
+    },
+    {
+      "ticker": "RHP",
+      "name": "Ryman Hospitality"
+    },
+    {
+      "ticker": "RLI",
+      "name": "RLI Corp"
+    },
+    {
+      "ticker": "RNR",
+      "name": "RenaissanceRe"
+    },
+    {
+      "ticker": "RPM",
+      "name": "RPM International"
+    },
+    {
+      "ticker": "RRR",
+      "name": "Red Rock Resorts"
+    },
+    {
+      "ticker": "RYAN",
+      "name": "Ryan Specialty"
+    },
+    {
+      "ticker": "SFBS",
+      "name": "ServisFirst Bancshares"
+    },
+    {
+      "ticker": "SKT",
+      "name": "Tanger Factory Outlet"
+    },
+    {
+      "ticker": "SM",
+      "name": "SM Energy"
+    },
+    {
+      "ticker": "SMPL",
+      "name": "Simply Good Foods"
+    },
+    {
+      "ticker": "SSD",
+      "name": "Simpson Manufacturing"
+    },
+    {
+      "ticker": "STAG",
+      "name": "STAG Industrial"
+    },
+    {
+      "ticker": "STEP",
+      "name": "StepStone Group"
+    },
+    {
+      "ticker": "SWX",
+      "name": "Southwest Gas"
+    },
+    {
+      "ticker": "TBBK",
+      "name": "The Bancorp"
+    },
+    {
+      "ticker": "TDC",
+      "name": "Teradata"
+    },
+    {
+      "ticker": "TDOC",
+      "name": "Teladoc Health"
+    },
+    {
+      "ticker": "THC",
+      "name": "Tenet Healthcare"
+    },
+    {
+      "ticker": "TNET",
+      "name": "TriNet Group"
+    },
+    {
+      "ticker": "TNL",
+      "name": "Travel + Leisure"
+    },
+    {
+      "ticker": "TRN",
+      "name": "Trinity Industries"
+    },
+    {
+      "ticker": "TRNO",
+      "name": "Terreno Realty"
+    },
+    {
+      "ticker": "TXRH",
+      "name": "Texas Roadhouse"
+    },
+    {
+      "ticker": "UFPI",
+      "name": "UFP Technologies"
+    },
+    {
+      "ticker": "UNF",
+      "name": "UniFirst Corp"
+    },
+    {
+      "ticker": "URBN",
+      "name": "Urban Outfitters"
+    },
+    {
+      "ticker": "VCEL",
+      "name": "Vericel Corp"
+    },
+    {
+      "ticker": "VLY",
+      "name": "Valley National Bancorp"
+    },
+    {
+      "ticker": "VNOM",
+      "name": "Viper Energy"
+    },
+    {
+      "ticker": "WAFD",
+      "name": "WaFd Inc"
+    },
+    {
+      "ticker": "WD",
+      "name": "Walker & Dunlop"
+    },
+    {
+      "ticker": "WDFC",
+      "name": "WD-40 Company"
+    },
+    {
+      "ticker": "WEN",
+      "name": "Wendy's"
+    },
+    {
+      "ticker": "WMS",
+      "name": "Advanced Drainage Systems"
+    },
+    {
+      "ticker": "WSC",
+      "name": "WillScot Mobile Mini"
+    },
+    {
+      "ticker": "WTFC",
+      "name": "Wintrust Financial"
+    },
+    {
+      "ticker": "XRX",
+      "name": "Xerox"
+    },
+    {
+      "ticker": "YETI",
+      "name": "YETI Holdings"
+    },
+    {
+      "ticker": "ZWS",
+      "name": "Zurn Elkay Water Solutions"
+    }
+  ]
+}
