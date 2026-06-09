@@ -53,7 +53,10 @@ def job_pre_market_scan():
                 "price": price
             })
 
+        from execution.order_manager import load_portfolio_state
+        state = load_portfolio_state()
         send_signal_summary(signals, positions=state.get("positions", {}))
+        
         logger.info(f"Pre-market scan complete — {len(signals)} signals evaluated")
 
     except Exception as e:
