@@ -80,7 +80,7 @@ def get_portfolio_value(state: dict) -> float:
     total = state["cash"]
     for ticker, pos in state["positions"].items():
         price = get_latest_price(ticker)
-        if price:
+        if price and price == price:  # nan check
             total += pos["shares"] * price
     return round(total, 2)
 
@@ -117,7 +117,7 @@ def run_scan(watchlist: list) -> list:
     # ── Monitor Existing Positions ────────────────────────────────────────────
     for ticker, pos in list(state["positions"].items()):
         current_price = get_latest_price(ticker)
-        if not current_price:
+        if not current_price or current_price != current_price:  # nan check
             continue
 
         if not _in_market_hours:
