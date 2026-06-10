@@ -209,8 +209,8 @@ def check_t212_sync() -> Dict:
 def reconcile_state_from_t212():
     """
     Force-sync portfolio state from T212 after a live sell.
-    Only removes positions T212 explicitly confirms are closed.
-    Leaves unmatched positions alone to prevent state wipe on ticker map failures.
+    Removes positions that are absent from T212 or explicitly closed.
+    Preserves entry_price, highest_price, trade_id from existing state.
     """
     try:
         from execution.t212_broker import T212Broker, _load_ticker_map
@@ -229,28 +229,31 @@ def reconcile_state_from_t212():
         ticker_map = _load_ticker_map()
         reverse_map = {v: k for k, v in ticker_map.items()}
 
-        # Start with everything in state — only remove what T212 confirms is gone
+        # Start with everything in state
         new_positions = dict(state["positions"])
 
-        # Update shares for positions T212 confirms we own
+        # Build set of all tickers T212 knows about (excluding pie holdings)
+        t212_all_tickers = set()
         for pos in (t212_positions or []):
             if pos.get("quantityInPies", 0) > 0:
                 continue
             t212_ticker = pos.get("instrument", {}).get("ticker", "")
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
+            t212_all_tickers.add(yf_ticker)
             qty = float(pos.get("quantityAvailableForTrading", 0))
+            # Update shares for positions T212 confirms we own
             if qty > 0 and yf_ticker in new_positions:
                 new_positions[yf_ticker]["shares"] = qty
-
-        # Only remove positions T212 explicitly shows with 0 quantity
-        for pos in (t212_positions or []):
-            if pos.get("quantityInPies", 0) > 0:
-                continue
-            t212_ticker = pos.get("instrument", {}).get("ticker", "")
-            yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
-            qty = float(pos.get("quantityAvailableForTrading", 0))
-            if qty == 0 and yf_ticker in new_positions:
+            # Remove positions T212 shows with 0 quantity
+            elif qty == 0 and yf_ticker in new_positions:
+                logger.info(f"Removing {yf_ticker} — T212 shows qty=0")
                 del new_positions[yf_ticker]
+
+        # Remove positions completely absent from T212 response
+        for ticker in list(new_positions.keys()):
+            if ticker not in t212_all_tickers:
+                logger.info(f"Removing {ticker} — absent from T212 response")
+                del new_positions[ticker]
 
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
@@ -261,7 +264,6 @@ def reconcile_state_from_t212():
 
     except Exception as e:
         logger.error(f"reconcile_state_from_t212 failed: {e}")
-
 
 def check_database() -> Dict:
     result = {"status": "OK", "details": ""}
