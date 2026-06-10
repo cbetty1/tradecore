@@ -5,15 +5,11 @@ from database.db import get_connection
 
 logger = logging.getLogger(__name__)
 
+# Minimum plausible portfolio value — below this, assume bad price data
+MIN_PLAUSIBLE_VALUE = 300.0
+
 
 def get_current_drawdown(starting_capital: float) -> float:
-    """
-    Calculate current drawdown from starting capital.
-    Using starting capital as baseline prevents partially-deployed
-    portfolios from triggering false drawdown alerts after selling positions.
-    Returns:
-        Current drawdown as a percentage (positive number)
-    """
     try:
         with get_connection() as conn:
             rows = conn.execute(
@@ -28,8 +24,12 @@ def get_current_drawdown(starting_capital: float) -> float:
         if starting_capital <= 0:
             return 0.0
 
+        if current < MIN_PLAUSIBLE_VALUE:
+            logger.warning(f"Drawdown skipped — value £{current:.2f} looks like bad price data")
+            return 0.0
+
         if current >= starting_capital:
-            return 0.0  # We're above starting capital — no drawdown
+            return 0.0
 
         drawdown = ((starting_capital - current) / starting_capital) * 100
         return round(drawdown, 2)
@@ -42,21 +42,6 @@ def get_current_drawdown(starting_capital: float) -> float:
 def is_kill_switch_active(max_drawdown_pct: float = 8.0,
                            daily_loss_pct: float = 3.0,
                            starting_capital: float = 10000.0) -> dict:
-    """
-    Check whether trading should be halted based on drawdown limits.
-
-    Daily loss is calculated from the FIRST snapshot of today (opening value),
-    not yesterday's close. This prevents overnight dips that recover intraday
-    from falsely triggering the kill switch.
-
-    Args:
-        max_drawdown_pct:  Maximum allowable drawdown before kill switch fires
-        daily_loss_pct:    Maximum allowable daily loss before kill switch fires
-        starting_capital:  Starting portfolio value
-
-    Returns:
-        Dict with active flag and reason
-    """
     try:
         with get_connection() as conn:
             snapshots = conn.execute(
@@ -69,16 +54,10 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
         current_value = snapshots[0]["total_value"]
         previous_value = snapshots[1]["total_value"]
 
-        # Sanity check — ignore snapshots where portfolio looks implausibly low
-        # This prevents bad price fetches from triggering the kill switch
-        if current_value < 50:
+        if current_value < MIN_PLAUSIBLE_VALUE:
             logger.warning(f"Kill switch skipped — current value £{current_value:.2f} looks like bad price data")
             return {"active": False, "reason": "Bad snapshot detected — skipped"}
-        
-        # --- Daily loss check ---
-        # Compare against today's OPENING value (first snapshot of today),
-        # not yesterday's close. Prevents overnight dips that recover intraday
-        # from falsely firing the kill switch.
+
         today_str = str(date.today())
 
         with get_connection() as conn:
@@ -90,9 +69,11 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
 
         if today_snapshots and len(today_snapshots) > 0:
             opening_value = today_snapshots[0]["total_value"]
+            if opening_value < MIN_PLAUSIBLE_VALUE:
+                opening_value = previous_value
+                logger.warning(f"Opening snapshot invalid (£{today_snapshots[0]['total_value']:.2f}) — using previous close £{previous_value:.2f}")
             logger.debug(f"Daily loss baseline: today's opening £{opening_value:.2f}")
         else:
-            # Fallback to yesterday's close if no snapshot yet today
             opening_value = previous_value
             logger.debug(f"Daily loss baseline: yesterday's close £{opening_value:.2f} (fallback)")
 
@@ -103,7 +84,6 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
             logger.critical(f"KILL SWITCH ACTIVE — {reason}")
             return {"active": True, "reason": reason}
 
-        # --- Max drawdown check ---
         current_drawdown = get_current_drawdown(starting_capital)
         if current_drawdown >= max_drawdown_pct:
             reason = f"Max drawdown hit: {current_drawdown:.2f}% >= {max_drawdown_pct}%"
