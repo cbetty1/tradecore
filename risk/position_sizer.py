@@ -29,7 +29,7 @@ def calculate_position_size(portfolio_value: float,
     Returns:
         Dict with shares, invest_amount, and reasoning
     """
-    if current_price <= 0:
+    if not current_price or current_price <= 0 or current_price != current_price:
         return _rejected("Invalid price")
 
     if cash_available < CASH_FLOOR:
