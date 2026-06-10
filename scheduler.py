@@ -63,61 +63,27 @@ def job_pre_market_scan():
         logger.error(f"Pre-market scan failed: {e}")
 
 
-def job_monitor_positions():
-    """Every 15 mins — monitor live positions and scan for new entries."""
-    from monitoring.health_monitor import record_job_run
-    record_job_run("position_monitor")
-
-    # Weekend gate — markets are closed, skip entirely
-    from execution.order_manager import is_trading_day
-    if not is_trading_day():
-        logger.info("Weekend — position monitor skipped (markets closed)")
-        return
-
-    now = datetime.now()
-    hour = now.hour
-    minute = now.minute
-
-    # Only run during market hours 08:00 - 21:00 (covers full US session)
-    if not (8 <= hour < 21):
-        logger.info(f"Outside market hours ({hour:02d}:{minute:02d}) — skipping position monitor")
-        return
-
-    logger.info("=== POSITION MONITOR RUNNING ===")
+def job_morning_snapshot():
+    """07:05 — Write opening portfolio snapshot for daily loss baseline."""
+    logger.info("=== MORNING SNAPSHOT ===")
     try:
-        from execution.order_manager import run_scan
-        from notifications.telegram import send_trade_alert
-
-        watchlist = load_watchlist()
-        actions = run_scan(watchlist)
-
-        for action in actions:
-            if action["action"] == "BUY":
-                send_trade_alert(
-                    action="BUY",
-                    ticker=action["ticker"],
-                    price=action["price"],
-                    shares=action["shares"],
-                    amount=action["invest_amount"],
-                    confidence=action["confidence"]
-                )
-            elif action["action"] == "SELL":
-                send_trade_alert(
-                    action="SELL",
-                    ticker=action["ticker"],
-                    price=action["price"],
-                    shares=action["shares"],
-                    amount=action["sell_value"],
-                    pnl=action["pnl"],
-                    reason=action["reason"]
-                )
-            elif action["action"] == "KILL_SWITCH":
-                from notifications.telegram import send_kill_switch_alert
-                send_kill_switch_alert(action["reason"])
-
+        from execution.order_manager import load_portfolio_state, get_portfolio_value
+        from database.queries import insert_snapshot
+        state = load_portfolio_state()
+        pv = get_portfolio_value(state)
+        if pv <= state["cash"]:
+            logger.warning(f"Morning snapshot skipped — prices unavailable (portfolio=£{pv:.2f})")
+            return
+        insert_snapshot(
+            snapshot_date=str(datetime.now().date()),
+            total_value=pv,
+            cash_balance=state["cash"],
+            invested_value=pv - state["cash"],
+            paper=0
+        )
+        logger.info(f"Morning snapshot written: £{pv:.2f}")
     except Exception as e:
-        logger.error(f"Position monitor failed: {e}")
-
+        logger.error(f"Morning snapshot failed: {e}")
 
 def job_midday_scan():
     """12:00 — Midday trade scan (no Telegram summary — execution only)."""
