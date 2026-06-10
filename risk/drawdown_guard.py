@@ -71,11 +71,10 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
 
         # Sanity check — ignore snapshots where portfolio looks implausibly low
         # This prevents bad price fetches from triggering the kill switch
-        if current_value < (starting_capital * 0.5):
-            logger.warning(f"Kill switch skipped — current value £{current_value:.2f} "
-                          f"looks like a bad price fetch, ignoring.")
+        if current_value < 50:
+            logger.warning(f"Kill switch skipped — current value £{current_value:.2f} looks like bad price data")
             return {"active": False, "reason": "Bad snapshot detected — skipped"}
-
+        
         # --- Daily loss check ---
         # Compare against today's OPENING value (first snapshot of today),
         # not yesterday's close. Prevents overnight dips that recover intraday
