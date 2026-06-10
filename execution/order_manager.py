@@ -105,11 +105,17 @@ def run_scan(watchlist: list) -> list:
 
     logger.info(f"Starting scan [{mode_label}] | Portfolio=£{portfolio_value:.2f} | Cash=£{cash:.2f}")
 
-    kill = is_kill_switch_active(
-        max_drawdown_pct=8.0,
-        daily_loss_pct=3.0,
-        starting_capital=state["starting_capital"]
-    )
+    portfolio_value = get_portfolio_value(state)
+    if portfolio_value <= state["cash"]:
+        logger.warning("Portfolio value equals cash — prices likely unavailable, skipping kill switch check")
+        kill = {"active": False, "reason": "Prices unavailable — kill switch skipped"}
+    else:
+        kill = is_kill_switch_active(
+            max_drawdown_pct=8.0,
+            daily_loss_pct=3.0,
+            starting_capital=state["starting_capital"]
+        )
+        
     if kill["active"]:
         logger.critical(f"KILL SWITCH ACTIVE — {kill['reason']} — No trades will be placed.")
         return [{"action": "KILL_SWITCH", "reason": kill["reason"]}]
