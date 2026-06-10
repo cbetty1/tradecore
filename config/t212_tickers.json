@@ -7,7 +7,7 @@
     "AMZN":    "AMZN_US_EQ",
     "TSLA":    "TSLA_US_EQ",
     "PLTR":    "PLTR_US_EQ",
-    "META":    "META_US_EQ",
+    "META":    "FB_US_EQ",
     "GOOGL":   "GOOGL_US_EQ",
     "ASML":    "ASML_US_EQ",
     "IBM":     "IBM_US_EQ",
