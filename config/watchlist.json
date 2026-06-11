@@ -26,7 +26,10 @@
     { "ticker": "DELL", "name": "Dell Technologies", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "CRM", "name": "Salesforce", "exchange": "NYSE", "currency": "USD" },
     { "ticker": "ORCL", "name": "Oracle", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "INTC", "name": "Intel", "exchange": "NASDAQ", "currency": "USD" }
+    { "ticker": "INTC", "name": "Intel", "exchange": "NASDAQ", "currency": "USD" },
+    { "ticker": "AZN.L", "name": "AstraZeneca", "exchange": "LSE", "currency": "GBX" },
+    { "ticker": "SHEL.L", "name": "Shell", "exchange": "LSE", "currency": "GBX" },
+    { "ticker": "HSBA.L", "name": "HSBC", "exchange": "LSE", "currency": "GBX" }
   ],
   "sectors": [
     { "ticker": "XLK", "name": "Technology" },
