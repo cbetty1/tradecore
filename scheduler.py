@@ -560,6 +560,10 @@ def job_edge_weekly_digest():
     summary = get_weekly_summary()
     send_message(summary)
 
+def job_daily_reconcile():
+    from monitoring.health_monitor import reconcile_state_from_t212
+    reconcile_state_from_t212()
+
 
 def start():
     """Register all jobs and start the scheduler."""
@@ -700,6 +704,11 @@ def start():
         job_edge_weekly_digest,
         CronTrigger(day_of_week='fri', hour=21, minute=0), 
         id='edge_weekly_digest')
+    
+    scheduler.add_job(
+        job_daily_reconcile,
+        CronTrigger(day_of_week='mon-fri', hour=7, minute=10),
+        id='daily_reconcile')
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
