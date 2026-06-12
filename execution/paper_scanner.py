@@ -156,6 +156,26 @@ def get_paper_summary() -> dict:
         avg_win = 0.0
         avg_loss = 0.0
 
+    # ── RawCap experiment counter (added 12 Jun 2026) ──────────────────────
+    # Counts paper signals this week where the MR raw cap fired.
+    # Passive monitoring of the confidence scorer experiment via Telegram.
+    rawcap_count = 0
+    rawcap_tickers = []
+    try:
+        from database.db import get_connection
+        with get_connection() as conn:
+            rows = conn.execute(
+                """SELECT ticker, COUNT(*) as n FROM signals
+                   WHERE notes LIKE '%RawCap%'
+                   AND date(created_at) >= ?
+                   GROUP BY ticker""",
+                (str(week_start),)
+            ).fetchall()
+            rawcap_tickers = [r["ticker"] for r in rows]
+            rawcap_count = sum(r["n"] for r in rows)
+    except Exception as e:
+        logger.warning(f"RawCap counter query failed: {e}")
+
     # Actual watchlist size — read from file, not DB
     # Must be outside the DB block to always reflect true universe size
     try:
@@ -226,6 +246,8 @@ def get_paper_summary() -> dict:
         "worst_performers": worst_performers,
         "total_scanned": total_scanned,
         "week_number": week_number,
+        "rawcap_count": rawcap_count,
+        "rawcap_tickers": rawcap_tickers,
     }
 
 

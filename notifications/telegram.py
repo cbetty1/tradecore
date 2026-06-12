@@ -565,6 +565,12 @@ def send_weekly_paper_summary(summary: dict) -> bool:
         f"<b>Universe scanned:</b> {total_scanned} stocks",
     ]
 
+    # RawCap experiment counter (12 Jun 2026)
+    rawcap_count = summary.get("rawcap_count", 0)
+    rawcap_tickers = summary.get("rawcap_tickers", [])
+    if rawcap_count > 0:
+        lines.append(f"<b>RawCap fired:</b> {rawcap_count}x ({', '.join(rawcap_tickers)})")
+
     # Win/loss stats
     total_closed = wins + losses
     if total_closed > 0:
