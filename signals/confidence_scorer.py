@@ -156,21 +156,25 @@ def apply_regime_adjustment(confidence: float, direction: str, regime: str) -> f
     return confidence
 
 
-def score_signal(result: SignalResult, df: pd.DataFrame) -> SignalResult:
+def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) -> SignalResult:
     """
     Apply full confidence scoring pipeline to a raw signal result.
 
     Pipeline:
         1. Get market regime
-        2. Apply regime adjustment
-        3. Apply volume confirmation
-        4. Apply sector adjustment
-        5. Clamp final score to 0-100
-        6. Re-evaluate direction based on final score
+        2. (Paper-only experiment) Cap mean reversion raw score at 85
+        3. Apply regime adjustment
+        4. Apply volume confirmation
+        5. Apply sector adjustment
+        6. Clamp final score to 0-100 (uncapped value logged in notes)
+        7. Re-evaluate direction based on final score
 
     Args:
         result: Raw SignalResult from a signal evaluator
         df:     OHLCV DataFrame used to generate the signal
+        paper:  True when called from the paper scanner — enables
+                paper-only experiments (MR raw cap). Live calls
+                leave this False and are unaffected.
 
     Returns:
         Updated SignalResult with refined confidence
@@ -180,6 +184,18 @@ def score_signal(result: SignalResult, df: pd.DataFrame) -> SignalResult:
 
     original_confidence = result.confidence
     notes = result.notes or ""
+
+    # ── PAPER-ONLY EXPERIMENT (12 Jun 2026) ──────────────────────────────
+    # Autopsy of 31 closed paper trades: mean reversion raw >= 90 won 33%
+    # (avg -£5.06) vs 55% (avg +£17.12) for raw < 90. Deepest-oversold
+    # setups are falling knives. Cap MR raw at 85 in paper only; review
+    # after 2-3 weeks before considering for live.
+    raw_capped = False
+    if (paper
+            and "MEAN_REVERSION" in result.signal_type
+            and result.confidence > 85.0):
+        result.confidence = 85.0
+        raw_capped = True
 
     # Step 1 — Market regime
     regime = get_market_regime()
@@ -196,7 +212,8 @@ def score_signal(result: SignalResult, df: pd.DataFrame) -> SignalResult:
     sector_adj = get_sector_adjustment(result.ticker)
     confidence += sector_adj
 
-    # Step 5 — Clamp
+    # Step 5 — Clamp (keep uncapped value for analysis)
+    uncapped = confidence
     confidence = max(0.0, min(confidence, 100.0))
 
     # Step 6 — Re-evaluate direction
@@ -209,8 +226,10 @@ def score_signal(result: SignalResult, df: pd.DataFrame) -> SignalResult:
 
     result.confidence = round(confidence, 1)
     result.direction = direction
+    cap_note = " | RawCap=85" if raw_capped else ""
     result.notes = (f"{notes} | Regime={regime} | "
                     f"VolAdj={volume_adj:+.1f} | SectorAdj={sector_adj:+.1f} | "
-                    f"Raw={original_confidence:.1f} → Final={confidence:.1f}")
+                    f"Raw={original_confidence:.1f}{cap_note} | "
+                    f"Uncapped={uncapped:.1f} → Final={confidence:.1f}")
 
     return result

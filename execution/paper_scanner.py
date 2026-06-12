@@ -344,8 +344,8 @@ def run_paper_scan() -> dict:
             )
 
             # Apply confidence scorer
-            final_signal = score_signal(best_raw, df)
-
+            final_signal = score_signal(best_raw, df, paper=True)
+            
             if not final_signal.is_actionable(min_confidence):
                 continue
             if final_signal.direction != "BUY":
