@@ -29,7 +29,8 @@
     { "ticker": "INTC", "name": "Intel", "exchange": "NASDAQ", "currency": "USD" },
     { "ticker": "AZN.L", "name": "AstraZeneca", "exchange": "LSE", "currency": "GBX" },
     { "ticker": "SHEL.L", "name": "Shell", "exchange": "LSE", "currency": "GBX" },
-    { "ticker": "HSBA.L", "name": "HSBC", "exchange": "LSE", "currency": "GBX" }
+    { "ticker": "HSBA.L", "name": "HSBC", "exchange": "LSE", "currency": "GBX" },
+    { "ticker": "SPCX", "name": "SpaceX", "exchange": "NASDAQ", "currency": "USD" }
   ],
   "sectors": [
     { "ticker": "XLK", "name": "Technology" },
