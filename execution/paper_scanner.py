@@ -184,8 +184,27 @@ def get_paper_summary() -> dict:
     except Exception:
         week_number = 1
 
-    weekly_pnl = total_pnl
-    weekly_pnl_pct = total_pnl_pct
+    try:
+        with get_connection() as conn:
+            week_snap = conn.execute(
+                """SELECT total_value FROM portfolio_snapshots
+                WHERE snapshot_date >= ? AND paper = 1
+                ORDER BY snapshot_date ASC LIMIT 1""",
+                (str(week_start),)
+            ).fetchone()
+            if not week_snap:
+                week_snap = conn.execute(
+                    """SELECT total_value FROM portfolio_snapshots
+                    WHERE snapshot_date < ? AND paper = 1
+                    ORDER BY snapshot_date DESC LIMIT 1""",
+                    (str(week_start),)
+                ).fetchone()
+            week_start_value = week_snap["total_value"] if week_snap else starting_capital
+            weekly_pnl = portfolio_value - week_start_value
+            weekly_pnl_pct = ((weekly_pnl / week_start_value) * 100) if week_start_value > 0 else 0.0
+    except Exception:
+        weekly_pnl = total_pnl
+        weekly_pnl_pct = total_pnl_pct
 
     return {
         "portfolio_value": portfolio_value,
