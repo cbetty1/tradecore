@@ -4,6 +4,7 @@ from datetime import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from edge_scanner.outcome_tracker import run_outcome_tracker, get_weekly_summary
 
 logging.basicConfig(
     level=logging.INFO,
@@ -550,6 +551,16 @@ def job_sync_check():
     run_sync_check()
 
 
+def job_edge_outcome_tracker():
+    logger.info("Running EdgeScanner outcome tracker...")
+    run_outcome_tracker()
+
+def job_edge_weekly_digest():
+    from notifications.telegram import send_message
+    summary = get_weekly_summary()
+    send_message(summary)
+
+
 def start():
     """Register all jobs and start the scheduler."""
 
@@ -679,6 +690,16 @@ def start():
         id="edge_scan",
         name="Edge Scanner"
     )
+
+    scheduler.add_job(
+        job_edge_outcome_tracker,
+        CronTrigger(day_of_week='mon-fri', hour=20, minute=50),
+        id='edge_outcome_tracker')
+
+    scheduler.add_job(
+        job_edge_weekly_digest,
+        CronTrigger(day_of_week='fri', hour=21, minute=0), 
+        id='edge_weekly_digest')
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
