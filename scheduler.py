@@ -417,23 +417,22 @@ def job_weekly_summary():
         with get_connection() as conn:
             week_snapshots = conn.execute(
                 """SELECT total_value FROM portfolio_snapshots
-                   WHERE snapshot_date >= ? AND paper = 0
+                   WHERE snapshot_date >= ? AND paper = 0 AND total_value >= 300
                    ORDER BY snapshot_date ASC LIMIT 1""",
                 (str(week_start),)
             ).fetchone()
 
-        if week_snapshots:
-            week_start_value = week_snapshots["total_value"]
-        else:
-            fallback = conn.execute(
-                """SELECT total_value FROM portfolio_snapshots
-                WHERE snapshot_date < ? AND paper = 0
-                ORDER BY snapshot_date DESC LIMIT 1""",
-                (str(week_start),)
-            ).fetchone()
-            
-            week_start_value = fallback["total_value"] if fallback else starting_capital
-                    
+            if not week_snapshots:
+                fallback = conn.execute(
+                    """SELECT total_value FROM portfolio_snapshots
+                       WHERE snapshot_date < ? AND paper = 0 AND total_value >= 300
+                       ORDER BY snapshot_date DESC LIMIT 1""",
+                    (str(week_start),)
+                ).fetchone()
+                week_start_value = fallback["total_value"] if fallback else starting_capital
+            else:
+                week_start_value = week_snapshots["total_value"]
+
             weekly_pnl = portfolio_value - week_start_value
 
             buys_week = conn.execute(
@@ -714,7 +713,7 @@ def start():
 
     scheduler.add_job(
         job_edge_weekly_digest,
-        CronTrigger(day_of_week='fri', hour=21, minute=0), 
+        CronTrigger(day_of_week='fri', hour=21, minute=5), 
         id='edge_weekly_digest')
     
     scheduler.add_job(
