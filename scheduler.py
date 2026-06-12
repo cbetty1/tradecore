@@ -421,7 +421,19 @@ def job_weekly_summary():
                    ORDER BY snapshot_date ASC LIMIT 1""",
                 (str(week_start),)
             ).fetchone()
-            week_start_value = week_snapshots["total_value"] if week_snapshots else starting_capital
+
+        if week_snapshots:
+            week_start_value = week_snapshots["total_value"]
+        else:
+            fallback = conn.execute(
+                """SELECT total_value FROM portfolio_snapshots
+                WHERE snapshot_date < ? AND paper = 0
+                ORDER BY snapshot_date DESC LIMIT 1""",
+                (str(week_start),)
+            ).fetchone()
+            
+            week_start_value = fallback["total_value"] if fallback else starting_capital
+                    
             weekly_pnl = portfolio_value - week_start_value
 
             buys_week = conn.execute(
