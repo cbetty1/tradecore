@@ -23,8 +23,8 @@ STATE_FILE = os.path.join(os.path.dirname(__file__), "..", "portfolio_state.json
 RISK_LIMITS_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "risk_limits.json")
 
 BREAKOUT_PAPER_ONLY = True
-EARNINGS_DRIFT_PAPER_ONLY = True  # Paper only until signal proves itself
-EARNINGS_DRIFT_MIN_CONFIDENCE = 70.0  # Higher bar — catalyst-driven, we want conviction
+EARNINGS_DRIFT_PAPER_ONLY = True
+EARNINGS_DRIFT_MIN_CONFIDENCE = 70.0
 
 
 def is_trading_day() -> bool:
@@ -40,12 +40,14 @@ def _is_paper_mode() -> bool:
         logger.error(f"Failed to read risk_limits.json — defaulting to PAPER mode: {e}")
         return True
 
+
 def _get_max_positions() -> int:
     try:
         with open(RISK_LIMITS_FILE) as f:
             return json.load(f).get("max_open_positions", 5)
     except Exception:
         return 5
+
 
 def _get_broker():
     from execution.t212_broker import T212Broker
@@ -85,6 +87,25 @@ def get_portfolio_value(state: dict) -> float:
     return round(total, 2)
 
 
+def get_recently_sold_tickers(hours: int = 4) -> set:
+    """Return tickers sold in the last X hours — prevents immediate re-entry after stop-loss."""
+    from database.db import get_connection
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                """SELECT DISTINCT ticker FROM trades
+                   WHERE status = 'CLOSED' AND paper = 0
+                   AND closed_at >= ?""",
+                (cutoff,)
+            ).fetchall()
+        return {r["ticker"] for r in rows}
+    except Exception as e:
+        logger.warning(f"Could not fetch recently sold tickers: {e}")
+        return set()
+
+
 def run_scan(watchlist: list) -> list:
     if not is_trading_day():
         logger.info("Weekend — run_scan skipped (markets closed)")
@@ -115,7 +136,7 @@ def run_scan(watchlist: list) -> list:
             daily_loss_pct=3.0,
             starting_capital=state["starting_capital"]
         )
-        
+
     if kill["active"]:
         logger.critical(f"KILL SWITCH ACTIVE — {kill['reason']} — No trades will be placed.")
         return [{"action": "KILL_SWITCH", "reason": kill["reason"]}]
@@ -221,6 +242,8 @@ def run_scan(watchlist: list) -> list:
 
     # ── Scan For New Signals ──────────────────────────────────────────────────
     open_tickers = list(state["positions"].keys())
+    recently_sold = get_recently_sold_tickers(hours=4)
+
     from signals.mean_reversion import MeanReversionSignal
     from signals.breakout import BreakoutSignal
     from signals.earnings_drift import EarningsDriftSignal
@@ -237,6 +260,10 @@ def run_scan(watchlist: list) -> list:
         if ticker in open_tickers:
             continue
 
+        if ticker in recently_sold:
+            logger.info(f"Skipping {ticker} — sold within last 4 hours (cooldown)")
+            continue
+
         max_positions = _get_max_positions()
         if len(state["positions"]) >= max_positions:
             logger.info(f"Max positions ({max_positions}) reached — skipping new entries.")
@@ -251,12 +278,10 @@ def run_scan(watchlist: list) -> list:
             continue
 
         current_price = get_latest_price(ticker)
-        if not current_price:
+        if not current_price or current_price != current_price:
             continue
 
         # ── Earnings Drift — paper only, evaluated independently ──────────
-        # Looks for stocks that had earnings in the last 1-2 days with a
-        # confirmed gap + volume. Runs BEFORE the earnings safety skip below.
         if had_recent_earnings(ticker, days=2):
             raw_drift = drift_engine.evaluate(ticker, df)
             if raw_drift.direction == "BUY" and raw_drift.confidence >= EARNINGS_DRIFT_MIN_CONFIDENCE:
@@ -278,7 +303,7 @@ def run_scan(watchlist: list) -> list:
                     notes=raw_drift.notes
                 )
 
-        # ── Standard signal pipeline (skips earnings window as before) ────
+        # ── Standard signal pipeline ──────────────────────────────────────
         raw_momentum = signal_engine.evaluate(ticker, df)
         raw_reversion = reversion_engine.evaluate(ticker, df)
         raw_breakout = breakout_engine.evaluate(ticker, df)
@@ -318,7 +343,6 @@ def run_scan(watchlist: list) -> list:
         if final_signal.direction != "BUY":
             continue
 
-        # Standard earnings safety check — still skips momentum entries near earnings
         if not is_earnings_safe(ticker):
             logger.info(f"Earnings approaching for {ticker} — skipping entry")
             continue
