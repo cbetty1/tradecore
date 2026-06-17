@@ -79,6 +79,7 @@ def get_volume_confirmation(df: pd.DataFrame) -> float:
         logger.warning(f"Volume confirmation failed: {e}")
         return 0.0
 
+
 def get_sector_adjustment(ticker: str) -> float:
     """
     Check the relative strength of the ticker's sector ETF.
@@ -87,7 +88,6 @@ def get_sector_adjustment(ticker: str) -> float:
     Returns:
         Adjustment score between -10.0 and +10.0
     """
-    # Map tickers to their sector ETF
     sector_map = {
         "NVDA": "XLK", "AMD": "XLK", "MSFT": "XLK", "AAPL": "XLK",
         "GOOGL": "XLC", "META": "XLC",
@@ -100,7 +100,7 @@ def get_sector_adjustment(ticker: str) -> float:
 
     sector_etf = sector_map.get(ticker.upper())
     if not sector_etf:
-        return 0.0  # No adjustment for unmapped tickers (ETFs etc.)
+        return 0.0
 
     try:
         etf_data = yf.download(sector_etf, period="1mo", interval="1d",
@@ -117,13 +117,13 @@ def get_sector_adjustment(ticker: str) -> float:
         relative_strength = etf_return - spy_return
 
         if relative_strength > 0.02:
-            return 10.0    # Sector outperforming — boost confidence
+            return 10.0
         elif relative_strength > 0:
             return 5.0
         elif relative_strength > -0.02:
             return 0.0
         else:
-            return -10.0   # Sector underperforming — reduce confidence
+            return -10.0
 
     except Exception as e:
         logger.warning(f"Sector adjustment failed for {ticker}: {e}")
@@ -133,10 +133,6 @@ def get_sector_adjustment(ticker: str) -> float:
 def apply_regime_adjustment(confidence: float, direction: str, regime: str) -> float:
     """
     Adjust confidence based on market regime.
-
-    Bull market  → boost BUY signals, reduce SELL signals
-    Bear market  → boost SELL signals, reduce BUY signals
-    Choppy       → reduce all signals slightly
     """
     if regime == "BULL":
         if direction == "BUY":
@@ -162,10 +158,10 @@ def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) ->
 
     Pipeline:
         1. Get market regime
-        2. (Paper-only experiment) Cap mean reversion raw score at 85
-        3. Apply regime adjustment
-        4. Apply volume confirmation
-        5. Apply sector adjustment
+        2. Apply regime adjustment
+        3. Apply volume confirmation
+        4. Apply sector adjustment
+        5. (Paper-only) Cap mean reversion final score at 85 AFTER all adjustments
         6. Clamp final score to 0-100 (uncapped value logged in notes)
         7. Re-evaluate direction based on final score
 
@@ -185,18 +181,6 @@ def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) ->
     original_confidence = result.confidence
     notes = result.notes or ""
 
-    # ── PAPER-ONLY EXPERIMENT (12 Jun 2026) ──────────────────────────────
-    # Autopsy of 31 closed paper trades: mean reversion raw >= 90 won 33%
-    # (avg -£5.06) vs 55% (avg +£17.12) for raw < 90. Deepest-oversold
-    # setups are falling knives. Cap MR raw at 85 in paper only; review
-    # after 2-3 weeks before considering for live.
-    raw_capped = False
-    if (paper
-            and "MEAN_REVERSION" in result.signal_type
-            and result.confidence > 85.0):
-        result.confidence = 85.0
-        raw_capped = True
-
     # Step 1 — Market regime
     regime = get_market_regime()
     result.regime = regime
@@ -211,6 +195,15 @@ def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) ->
     # Step 4 — Sector adjustment
     sector_adj = get_sector_adjustment(result.ticker)
     confidence += sector_adj
+
+    # ── PAPER-ONLY EXPERIMENT (12 Jun 2026) ──────────────────────────────
+    # Cap applied AFTER all adjustments so regime/volume boosts can't undo it.
+    # Autopsy: MR raw >= 90 won 33% (avg -£5.06) vs 55% (avg +£17.12) for raw < 90.
+    # NFLX Raw=90 → Final=100 showed the pre-adjustment cap was ineffective.
+    raw_capped = False
+    if paper and "MEAN_REVERSION" in result.signal_type and confidence > 85.0:
+        confidence = 85.0
+        raw_capped = True
 
     # Step 5 — Clamp (keep uncapped value for analysis)
     uncapped = confidence
