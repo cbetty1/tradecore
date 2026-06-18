@@ -211,10 +211,24 @@ def run_scan(watchlist: list) -> list:
                         confidence=0,
                         pnl=round(pnl, 2)
                     )
+                    trade_id = pos.get("trade_id")
+                    if trade_id:
+                        close_trade(trade_id, pnl)
+                    else:
+                        logger.warning(f"No trade_id for {ticker} — skipping DB close")
                     from monitoring.health_monitor import reconcile_state_from_t212
                     reconcile_state_from_t212()
                     state = load_portfolio_state()
                     cash = state["cash"]
+                    actions.append({
+                        "action": "SELL",
+                        "ticker": ticker,
+                        "price": current_price,
+                        "shares": shares,
+                        "sell_value": round(sell_value, 2),
+                        "pnl": round(pnl, 2),
+                        "reason": exit_check["reason"]
+                    })
                     continue
 
             # ── PAPER: Update state manually ───────────────────────────────
