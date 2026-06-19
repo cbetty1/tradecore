@@ -90,11 +90,10 @@ def save_paper_state(state: dict):
 
 
 def get_paper_portfolio_value(state: dict) -> float:
-    """Calculate paper portfolio value."""
     total = state["cash"]
     for ticker, pos in state["positions"].items():
         price = get_latest_price(ticker)
-        if price:
+        if price and price == price:  # nan check
             total += pos["shares"] * price
     return round(total, 2)
 
