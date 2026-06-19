@@ -417,7 +417,7 @@ def job_weekly_summary():
         with get_connection() as conn:
             week_snapshots = conn.execute(
                 """SELECT total_value FROM portfolio_snapshots
-                   WHERE snapshot_date >= ? AND paper = 0 AND total_value >= 300
+                   WHERE snapshot_date >= ? AND paper = 0 AND total_value >= 200
                    ORDER BY snapshot_date ASC LIMIT 1""",
                 (str(week_start),)
             ).fetchone()
@@ -425,11 +425,11 @@ def job_weekly_summary():
             if not week_snapshots:
                 fallback = conn.execute(
                     """SELECT total_value FROM portfolio_snapshots
-                       WHERE snapshot_date < ? AND paper = 0 AND total_value >= 300
+                       WHERE snapshot_date < ? AND paper = 0 AND total_value >= 200
                        ORDER BY snapshot_date DESC LIMIT 1""",
                     (str(week_start),)
                 ).fetchone()
-                week_start_value = fallback["total_value"] if fallback else starting_capital
+                week_start_value = fallback["total_value"] if fallback else portfolio_value
             else:
                 week_start_value = week_snapshots["total_value"]
 

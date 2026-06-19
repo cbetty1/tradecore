@@ -502,13 +502,16 @@ def run_paper_scan() -> dict:
     portfolio_value = get_paper_portfolio_value(state)
     save_paper_state(state)
 
-    insert_snapshot(
-        snapshot_date=str(datetime.now().date()),
-        total_value=portfolio_value,
-        cash_balance=cash,
-        invested_value=portfolio_value - cash,
-        paper=1
-    )
+    if portfolio_value and portfolio_value == portfolio_value:  # nan check
+        insert_snapshot(
+            snapshot_date=str(datetime.now().date()),
+            total_value=portfolio_value,
+            cash_balance=cash,
+            invested_value=portfolio_value - cash,
+            paper=1
+        )
+    else:
+        logger.warning(f"Paper snapshot skipped — portfolio value invalid ({portfolio_value})")
 
     total_pnl = portfolio_value - starting_capital
     total_pnl_pct = (total_pnl / starting_capital) * 100
