@@ -709,17 +709,27 @@ def start():
     scheduler.add_job(
         job_edge_outcome_tracker,
         CronTrigger(day_of_week='mon-fri', hour=20, minute=50),
-        id='edge_outcome_tracker')
+        id='edge_outcome_tracker'
+   )
 
     scheduler.add_job(
         job_edge_weekly_digest,
         CronTrigger(day_of_week='fri', hour=21, minute=5), 
-        id='edge_weekly_digest')
+        id='edge_weekly_digest'
+    )
     
     scheduler.add_job(
         job_daily_reconcile,
         CronTrigger(day_of_week='mon-fri', hour=7, minute=10),
-        id='daily_reconcile')
+        id='daily_reconcile'
+    )
+
+    scheduler.add_job(
+        job_daily_reconcile,
+        CronTrigger(day_of_week='mon-fri', hour=13, minute=0),
+        id='job_midday_reconcile', name='Midday Reconcile'
+    )
+
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
