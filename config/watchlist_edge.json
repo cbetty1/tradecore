@@ -2255,6 +2255,11 @@
     {
       "ticker": "ZWS",
       "name": "ZWS"
-    }
+    },
+
+    { "ticker": "IONQ", "name": "IonQ", "exchange": "NYSE", "currency": "USD" },
+{ "ticker": "RGTI", "name": "Rigetti Computing", "exchange": "NASDAQ", "currency": "USD" },
+{ "ticker": "QUBT", "name": "Quantum Computing Inc", "exchange": "NASDAQ", "currency": "USD" },
+{ "ticker": "QBTS", "name": "D-Wave Quantum", "exchange": "NYSE", "currency": "USD" }
   ]
 }
