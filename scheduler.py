@@ -744,7 +744,7 @@ def start():
     scheduler.add_job(
         job_daily_reconcile,
         CronTrigger(day_of_week='mon-fri', hour=15, minute=0),
-        id='job_midday_reconcile', name='Afternoon Reconcile'
+        id='job_afternoon_reconcile', name='Afternoon Reconcile'
     )
 
 
