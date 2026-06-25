@@ -741,6 +741,12 @@ def start():
         id='job_midday_reconcile', name='Midday Reconcile'
     )
 
+    scheduler.add_job(
+        job_daily_reconcile,
+        CronTrigger(day_of_week='mon-fri', hour=15, minute=0),
+        id='job_midday_reconcile', name='Afternoon Reconcile'
+    )
+
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
