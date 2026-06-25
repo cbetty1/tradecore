@@ -304,13 +304,24 @@ def job_daily_report():
         from data.price_feed import get_latest_price
 
         state = load_portfolio_state()
-        for ticker in state["positions"]:
-            get_latest_price(ticker)
-        portfolio_value = get_portfolio_value(state)
-        cash = state["cash"]
         starting_capital = state["starting_capital"]
-        total_pnl = portfolio_value - starting_capital
         open_positions = len(state["positions"])
+
+        # Use T212 as source of truth for portfolio value
+        try:
+            from execution.t212_broker import T212Broker
+            broker = T212Broker()
+            t212_balance = broker.get_account_balance()
+            portfolio_value = round(float(t212_balance.get("total", 0)), 2)
+            cash = round(float(t212_balance.get("free", state["cash"])), 2)
+        except Exception as e:
+            logger.warning(f"T212 balance fetch failed, falling back to state: {e}")
+            for ticker in state["positions"]:
+                get_latest_price(ticker)
+            portfolio_value = get_portfolio_value(state)
+            cash = state["cash"]
+
+        total_pnl = portfolio_value - starting_capital
 
         snapshots = get_snapshots(2)
         if len(snapshots) >= 2:
