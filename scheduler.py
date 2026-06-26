@@ -409,19 +409,30 @@ def job_weekly_summary():
 
     logger.info("=== WEEKLY SUMMARY GENERATING ===")
     try:
-        from execution.order_manager import load_portfolio_state, get_portfolio_value
+        from execution.order_manager import load_portfolio_state
         from database.db import get_connection
         from notifications.telegram import send_weekly_summary
-        from data.price_feed import get_latest_price
 
         state = load_portfolio_state()
-        for ticker in state["positions"]:
-            get_latest_price(ticker)
-        portfolio_value = get_portfolio_value(state)
-        cash = state["cash"]
         starting_capital = state["starting_capital"]
-        total_pnl = portfolio_value - starting_capital
 
+        # Use T212 as source of truth
+        try:
+            from execution.t212_broker import T212Broker
+            broker = T212Broker()
+            t212_balance = broker.get_account_balance()
+            portfolio_value = round(float(t212_balance.get("total", 0)), 2)
+            cash = round(float(t212_balance.get("free", state["cash"])), 2)
+        except Exception as e:
+            logger.warning(f"T212 fetch failed, falling back to state: {e}")
+            from execution.order_manager import get_portfolio_value
+            from data.price_feed import get_latest_price
+            for ticker in state["positions"]:
+                get_latest_price(ticker)
+            portfolio_value = get_portfolio_value(state)
+            cash = state["cash"]
+
+        total_pnl = portfolio_value - starting_capital
         today = datetime.now().date()
         week_start = today - __import__('datetime').timedelta(days=today.weekday())
 
