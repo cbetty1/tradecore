@@ -50,7 +50,7 @@
     "SBUX":    "SBUX_US_EQ",
     "MCD":     "MCD_US_EQ",
     "BA":      "BA_US_EQ",
-    "RTX":     "RTX_US_EQ",
+    "RTX": "RTO_US_EQ",
     "NOW":     "NOW_US_EQ",
     "ADBE":    "ADBE_US_EQ"
   },
