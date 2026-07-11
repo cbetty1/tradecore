@@ -255,6 +255,24 @@ def reconcile_state_from_t212():
                 logger.info(f"Removing {ticker} — absent from T212 response")
                 del new_positions[ticker]
 
+        # ADD positions in T212 but missing from state
+        for pos in (t212_positions or []):
+            if pos.get("quantityInPies", 0) > 0:
+                continue
+            t212_ticker = pos.get("instrument", {}).get("ticker", "")
+            yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
+            qty = float(pos.get("quantityAvailableForTrading", 0))
+            if qty > 0 and yf_ticker not in new_positions:
+                avg_price = float(pos.get("averagePrice", 0))
+                new_positions[yf_ticker] = {
+                    "shares": qty,
+                    "entry_price": avg_price,
+                    "highest_price": avg_price,
+                    "trade_id": None,
+                    "invested": round(qty * avg_price, 2)
+                }
+                logger.info(f"Added missing position from T212: {yf_ticker} x{qty} @ £{avg_price:.2f}")
+
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
         state["cash"] = new_cash
