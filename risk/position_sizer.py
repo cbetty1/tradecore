@@ -60,7 +60,7 @@ def calculate_position_size(portfolio_value: float,
     return {
         "approved": True,
         "invest_amount": round(invest_amount, 2),
-        "shares": round(shares, 4),
+        "shares": round(shares, 6),
         "confidence_factor": round(confidence_factor, 2),
         "reason": f"Approved | ConfFactor={confidence_factor:.2f}"
     }
