@@ -41,17 +41,52 @@ def _is_paper_mode() -> bool:
         return True
 
 
-def _get_max_positions() -> int:
+def _get_risk_limits() -> dict:
     try:
         with open(RISK_LIMITS_FILE) as f:
-            return json.load(f).get("max_open_positions", 5)
+            return json.load(f)
     except Exception:
-        return 5
+        return {}
+
+
+def _get_max_positions() -> int:
+    limits = _get_risk_limits()
+    return limits.get("max_open_positions", 5)
+
+
+def _get_tc_max_positions() -> int:
+    limits = _get_risk_limits()
+    return limits.get("max_tc_positions", 7)
+
+
+def _get_edge_max_positions() -> int:
+    limits = _get_risk_limits()
+    return limits.get("max_edge_positions", 1)
 
 
 def _get_broker():
     from execution.t212_broker import T212Broker
     return T212Broker()
+
+
+def _is_edge_ticker(ticker: str, watchlist: list) -> bool:
+    """Return True if this ticker was promoted from EdgeScanner."""
+    for stock in watchlist:
+        if stock["ticker"] == ticker:
+            return stock.get("source") == "EdgeScanner"
+    return False
+
+
+def _count_positions_by_source(positions: dict, watchlist: list) -> tuple:
+    """Return (tc_count, edge_count) of open positions."""
+    tc_count = 0
+    edge_count = 0
+    for ticker in positions:
+        if _is_edge_ticker(ticker, watchlist):
+            edge_count += 1
+        else:
+            tc_count += 1
+    return tc_count, edge_count
 
 
 def load_portfolio_state() -> dict:
@@ -113,6 +148,7 @@ def run_scan(watchlist: list) -> list:
 
     paper = _is_paper_mode()
     mode_label = "PAPER" if paper else "LIVE"
+    limits = _get_risk_limits()
 
     state = load_portfolio_state()
     portfolio_value = get_portfolio_value(state)
@@ -121,8 +157,7 @@ def run_scan(watchlist: list) -> list:
 
     _now = datetime.now()
     _hour = _now.hour
-    _minute = _now.minute
-    _in_market_hours = ((8 <= _hour < 21))
+    _in_market_hours = (8 <= _hour < 21)
 
     logger.info(f"Starting scan [{mode_label}] | Portfolio=£{portfolio_value:.2f} | Cash=£{cash:.2f}")
 
@@ -157,12 +192,17 @@ def run_scan(watchlist: list) -> list:
             state["positions"][ticker]["highest_price"] = highest_price
             logger.debug(f"New high for {ticker}: £{highest_price:.2f}")
 
-        logger.info(f"Checking {ticker} | Price=£{current_price:.2f} | Entry=£{pos['entry_price']:.2f} | High=£{highest_price:.2f}")
+        # ── Apply correct risk rules based on source ───────────────────────
+        is_edge = pos.get("source") == "EdgeScanner"
+        stop_loss_pct = limits.get("edge_stop_loss_pct", 8.0) if is_edge else limits.get("stop_loss_pct", 5.0)
+        take_profit_pct = limits.get("edge_take_profit_pct", 40.0) if is_edge else limits.get("take_profit_pct", 15.0)
+
+        logger.info(f"Checking {ticker} | Price=£{current_price:.2f} | Entry=£{pos['entry_price']:.2f} | High=£{highest_price:.2f} | {'EDGE' if is_edge else 'TC'}")
         exit_check = check_exit_conditions(
             current_price=current_price,
             entry_price=pos["entry_price"],
-            stop_loss_pct=5.0,
-            take_profit_pct=15.0,
+            stop_loss_pct=stop_loss_pct,
+            take_profit_pct=take_profit_pct,
             highest_price=highest_price
         )
 
@@ -179,7 +219,7 @@ def run_scan(watchlist: list) -> list:
 
                 if "error" in order_result:
                     error_msg = str(order_result['error'])
-                    logger.error(f"LIVE BUY FAILED for {ticker}: {error_msg}")
+                    logger.error(f"LIVE SELL FAILED for {ticker}: {error_msg}")
 
                     silent_errors = [
                         "whole shares but position size too small",
@@ -191,10 +231,9 @@ def run_scan(watchlist: list) -> list:
                     if not is_silent:
                         from notifications.telegram import send_message
                         send_message(
-                            f"🚨 <b>LIVE BUY FAILED</b>\n\n"
+                            f"🚨 <b>LIVE SELL FAILED</b>\n\n"
                             f"<b>Stock:</b> {ticker}\n"
-                            f"<b>Shares:</b> {size['shares']:.6f}\n"
-                            f"<b>Amount:</b> £{size['invest_amount']:.2f}\n"
+                            f"<b>Shares:</b> {shares:.6f}\n"
                             f"<b>Error:</b> {error_msg}\n\n"
                             f"⚡ TradeCore LIVE"
                         )
@@ -242,7 +281,7 @@ def run_scan(watchlist: list) -> list:
             else:
                 logger.warning(f"No trade_id for {ticker} — skipping DB close, position removed from state")
 
-            action = {
+            actions.append({
                 "action": "SELL",
                 "ticker": ticker,
                 "price": current_price,
@@ -250,8 +289,7 @@ def run_scan(watchlist: list) -> list:
                 "sell_value": round(sell_value, 2),
                 "pnl": round(pnl, 2),
                 "reason": exit_check["reason"]
-            }
-            actions.append(action)
+            })
             logger.info(f"SELL {ticker} [{mode_label}] | {exit_check['reason']} | P&L=£{pnl:.2f} ({exit_check['pnl_pct']:.1f}%)")
 
     # ── Scan For New Signals ──────────────────────────────────────────────────
@@ -268,8 +306,12 @@ def run_scan(watchlist: list) -> list:
     breakout_engine = BreakoutSignal()
     drift_engine = EarningsDriftSignal()
 
+    tc_max = _get_tc_max_positions()
+    edge_max = _get_edge_max_positions()
+
     for stock in watchlist:
         ticker = stock["ticker"]
+        is_edge = stock.get("source") == "EdgeScanner"
 
         if ticker in open_tickers:
             continue
@@ -278,10 +320,17 @@ def run_scan(watchlist: list) -> list:
             logger.info(f"Skipping {ticker} — sold within last 4 hours (cooldown)")
             continue
 
-        max_positions = _get_max_positions()
-        if len(state["positions"]) >= max_positions:
-            logger.info(f"Max positions ({max_positions}) reached — skipping new entries.")
-            break
+        # ── Slot check — TC and EdgeScanner slots tracked separately ──────
+        tc_count, edge_count = _count_positions_by_source(state["positions"], watchlist)
+
+        if is_edge:
+            if edge_count >= edge_max:
+                logger.info(f"EdgeScanner slots full ({edge_count}/{edge_max}) — skipping {ticker}")
+                continue
+        else:
+            if tc_count >= tc_max:
+                logger.info(f"TradeCore slots full ({tc_count}/{tc_max}) — skipping {ticker}")
+                continue
 
         if cash < CASH_FLOOR:
             logger.info("Insufficient cash for new positions.")
@@ -361,31 +410,48 @@ def run_scan(watchlist: list) -> list:
             logger.info(f"Earnings approaching for {ticker} — skipping entry")
             continue
 
-        corr_check = is_too_correlated(ticker, open_tickers)
-        if corr_check["blocked"]:
-            cash_pct_of_portfolio = (cash / portfolio_value) * 100
-            high_confidence = final_signal.confidence >= CASH_DEPLOYMENT_MIN_CONFIDENCE
-            cash_idle = cash_pct_of_portfolio >= CASH_DEPLOYMENT_THRESHOLD_PCT
+        # ── Correlation check — skip for EdgeScanner stocks ───────────────
+        if not is_edge:
+            corr_check = is_too_correlated(ticker, open_tickers)
+            if corr_check["blocked"]:
+                cash_pct_of_portfolio = (cash / portfolio_value) * 100
+                high_confidence = final_signal.confidence >= CASH_DEPLOYMENT_MIN_CONFIDENCE
+                cash_idle = cash_pct_of_portfolio >= CASH_DEPLOYMENT_THRESHOLD_PCT
 
-            if cash_idle and high_confidence:
-                logger.info(f"Cash deployment override — Cash={cash_pct_of_portfolio:.1f}% | Conf={final_signal.confidence:.1f}% — Overriding correlation block for {ticker}")
-            else:
-                logger.info(f"Correlation block: {corr_check['reason']}")
+                if cash_idle and high_confidence:
+                    logger.info(f"Cash deployment override — Cash={cash_pct_of_portfolio:.1f}% | Conf={final_signal.confidence:.1f}% — Overriding correlation block for {ticker}")
+                else:
+                    logger.info(f"Correlation block: {corr_check['reason']}")
+                    continue
+
+        # ── Position sizing — EdgeScanner uses separate pct ───────────────
+        if is_edge:
+            edge_max_pct = limits.get("edge_max_position_pct", 8.0) / 100
+            invest_amount = min(portfolio_value * edge_max_pct, cash * 0.95)
+            if invest_amount < CASH_FLOOR:
+                logger.info(f"EdgeScanner position too small for {ticker} — skipping")
                 continue
-
-        size = calculate_position_size(
-            portfolio_value=portfolio_value,
-            cash_available=cash,
-            current_price=current_price,
-            confidence=final_signal.confidence
-        )
+            shares = round(invest_amount / current_price, 6)
+            size = {
+                "approved": True,
+                "invest_amount": round(invest_amount, 2),
+                "shares": shares,
+                "reason": f"EdgeScanner sizing ({edge_max_pct*100:.0f}% of portfolio)"
+            }
+        else:
+            size = calculate_position_size(
+                portfolio_value=portfolio_value,
+                cash_available=cash,
+                current_price=current_price,
+                confidence=final_signal.confidence
+            )
 
         if not size["approved"]:
             logger.info(f"Position rejected: {size['reason']}")
             continue
 
         if not paper:
-            logger.info(f"LIVE BUY: {ticker} | {size['shares']:.6f} shares | £{size['invest_amount']:.2f}")
+            logger.info(f"LIVE BUY: {ticker} | {size['shares']:.6f} shares | £{size['invest_amount']:.2f} | {'EDGE' if is_edge else 'TC'}")
             broker = _get_broker()
             order_result = broker.place_buy_order(ticker, size["shares"])
 
@@ -430,20 +496,20 @@ def run_scan(watchlist: list) -> list:
             "entry_price": current_price,
             "highest_price": current_price,
             "trade_id": trade_id,
-            "invested": size["invest_amount"]
+            "invested": size["invest_amount"],
+            "source": "EdgeScanner" if is_edge else "TradeCore"
         }
         open_tickers.append(ticker)
 
-        action = {
+        actions.append({
             "action": "BUY",
             "ticker": ticker,
             "price": current_price,
             "shares": size["shares"],
             "invest_amount": size["invest_amount"],
             "confidence": final_signal.confidence
-        }
-        actions.append(action)
-        logger.info(f"BUY {ticker} [{mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f}")
+        })
+        logger.info(f"BUY {ticker} [{mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
 
     # ── Save State + Snapshot ─────────────────────────────────────────────────
     portfolio_value = get_portfolio_value(state)

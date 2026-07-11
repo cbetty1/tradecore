@@ -608,6 +608,36 @@ def send_weekly_paper_summary(summary: dict) -> bool:
 
     return send_message("\n".join(lines))
 
+def send_promotion_alert(promoted: list) -> bool:
+    """EdgeScanner promotion notification."""
+    lines = [
+        "🚀 <b>EDGESCANNER PROMOTION</b>",
+        "",
+        f"<b>{len(promoted)} stock(s) promoted to live watchlist:</b>",
+        ""
+    ]
+    for p in promoted:
+        lines.append(f"  ▲ <b>{p['ticker']}</b>")
+        lines.append(f"     Signals: {p['signals']} | Win rate: {p['win_rate']}% | Return: +{p['total_return']}%")
+        lines.append("")
+    lines.append("⚡ TradeCore EdgeScanner")
+    return send_message("\n".join(lines))
+
+
+def send_demotion_alert(demoted: list) -> bool:
+    """EdgeScanner demotion notification."""
+    lines = [
+        "📉 <b>EDGESCANNER DEMOTION</b>",
+        "",
+        f"<b>{len(demoted)} stock(s) removed from live watchlist:</b>",
+        ""
+    ]
+    for d in demoted:
+        lines.append(f"  ▼ <b>{d['ticker']}</b> — {d['reason']}")
+    lines.append("")
+    lines.append("⚡ TradeCore EdgeScanner")
+    return send_message("\n".join(lines))
+
 # ── Appended: send_earnings_drift_alert ──────────────────────────────────────
 
 def send_earnings_drift_alert(ticker: str, price: float,

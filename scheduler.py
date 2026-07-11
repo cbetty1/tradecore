@@ -598,6 +598,25 @@ def job_daily_reconcile():
     from monitoring.health_monitor import reconcile_state_from_t212
     reconcile_state_from_t212()
 
+def job_edge_promotion_check():
+    """20:52 — Nightly EdgeScanner promotion check."""
+    logger.info("=== EDGE PROMOTION CHECK ===")
+    try:
+        from edge_scanner.promoter import run_promotion_check
+        run_promotion_check()
+    except Exception as e:
+        logger.error(f"Edge promotion check failed: {e}")
+
+
+def job_edge_demotion_review():
+    """Sunday 20:00 — Weekly demotion review."""
+    logger.info("=== EDGE DEMOTION REVIEW ===")
+    try:
+        from edge_scanner.promoter import run_demotion_review
+        run_demotion_review()
+    except Exception as e:
+        logger.error(f"Edge demotion review failed: {e}")
+
 
 def start():
     """Register all jobs and start the scheduler."""
@@ -757,6 +776,21 @@ def start():
         job_daily_reconcile,
         CronTrigger(day_of_week='mon-fri', hour=15, minute=0),
         id='job_afternoon_reconcile', name='Afternoon Reconcile'
+    )
+
+    # Edge scanner jobs
+    scheduler.add_job(
+        job_edge_promotion_check,
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=52),
+        id="edge_promotion_check",
+        name="EdgeScanner Promotion Check"
+    )
+
+    scheduler.add_job(
+        job_edge_demotion_review,
+        CronTrigger(day_of_week="sun", hour=20, minute=0),
+        id="edge_demotion_review",
+        name="EdgeScanner Demotion Review"
     )
 
 
