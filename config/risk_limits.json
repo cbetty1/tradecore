@@ -16,7 +16,7 @@
   "max_edge_positions": 1,
   "edge_take_profit_pct": 40.0,
   "edge_stop_loss_pct": 8.0,
-  "edge_max_position_pct": 8.0,
+  "edge_max_position_pct": 12.0,
   "max_hold_days_tc": 30,
   "max_hold_days_edge": 14
 }
