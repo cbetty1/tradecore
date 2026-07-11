@@ -1,7 +1,7 @@
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from data.price_feed import get_latest_price, get_historical_data
 from signals.momentum import MomentumSignal
 from signals.confidence_scorer import score_signal, get_market_regime
@@ -89,6 +89,34 @@ def _count_positions_by_source(positions: dict, watchlist: list) -> tuple:
     return tc_count, edge_count
 
 
+def _check_max_hold(pos: dict, is_edge: bool, limits: dict) -> dict:
+    """
+    Check if a position has exceeded its max hold period.
+    Only exits if P&L is positive — never forces a loss.
+    """
+    entry_date_str = pos.get("entry_date")
+    if not entry_date_str:
+        return {"should_exit": False}
+
+    max_days = limits.get("max_hold_days_edge", 14) if is_edge else limits.get("max_hold_days_tc", 30)
+    entry_date = datetime.strptime(entry_date_str, "%Y-%m-%d").date()
+    days_held = (datetime.now().date() - entry_date).days
+
+    if days_held >= max_days:
+        current_price = get_latest_price(pos.get("ticker", ""))
+        if current_price:
+            pnl_pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
+            if pnl_pct > 0:
+                return {
+                    "should_exit": True,
+                    "reason": f"MAX_HOLD ({days_held} days | +{pnl_pct:.1f}%)"
+                }
+            else:
+                logger.info(f"Max hold reached but P&L negative ({pnl_pct:.1f}%) — letting stop loss handle it")
+
+    return {"should_exit": False}
+
+
 def load_portfolio_state() -> dict:
     if os.path.exists(STATE_FILE):
         try:
@@ -125,7 +153,6 @@ def get_portfolio_value(state: dict) -> float:
 def get_recently_sold_tickers(hours: int = 4) -> set:
     """Return tickers sold in the last X hours — prevents immediate re-entry after stop-loss."""
     from database.db import get_connection
-    from datetime import timedelta
     cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     try:
         with get_connection() as conn:
@@ -198,13 +225,24 @@ def run_scan(watchlist: list) -> list:
         take_profit_pct = limits.get("edge_take_profit_pct", 40.0) if is_edge else limits.get("take_profit_pct", 15.0)
 
         logger.info(f"Checking {ticker} | Price=£{current_price:.2f} | Entry=£{pos['entry_price']:.2f} | High=£{highest_price:.2f} | {'EDGE' if is_edge else 'TC'}")
-        exit_check = check_exit_conditions(
-            current_price=current_price,
-            entry_price=pos["entry_price"],
-            stop_loss_pct=stop_loss_pct,
-            take_profit_pct=take_profit_pct,
-            highest_price=highest_price
-        )
+
+        # ── Max hold check (runs before TP/SL) ────────────────────────────
+        pos["ticker"] = ticker
+        max_hold = _check_max_hold(pos, is_edge, limits)
+        if max_hold["should_exit"]:
+            exit_check = {
+                "should_exit": True,
+                "reason": max_hold["reason"],
+                "pnl_pct": round(((current_price - pos["entry_price"]) / pos["entry_price"]) * 100, 2)
+            }
+        else:
+            exit_check = check_exit_conditions(
+                current_price=current_price,
+                entry_price=pos["entry_price"],
+                stop_loss_pct=stop_loss_pct,
+                take_profit_pct=take_profit_pct,
+                highest_price=highest_price
+            )
 
         if exit_check["should_exit"]:
             shares = pos["shares"]
@@ -213,7 +251,7 @@ def run_scan(watchlist: list) -> list:
 
             # ── LIVE: Place real sell order ────────────────────────────────
             if not paper:
-                logger.info(f"LIVE SELL: {ticker} | {shares:.6f} shares")
+                logger.info(f"LIVE SELL: {ticker} | {shares:.6f} shares | Reason={exit_check['reason']}")
                 broker = _get_broker()
                 order_result = broker.place_sell_order(ticker, shares)
 
@@ -248,7 +286,8 @@ def run_scan(watchlist: list) -> list:
                         shares=shares,
                         amount=round(sell_value, 2),
                         confidence=0,
-                        pnl=round(pnl, 2)
+                        pnl=round(pnl, 2),
+                        reason=exit_check["reason"]
                     )
                     trade_id = pos.get("trade_id")
                     if trade_id:
@@ -497,7 +536,8 @@ def run_scan(watchlist: list) -> list:
             "highest_price": current_price,
             "trade_id": trade_id,
             "invested": size["invest_amount"],
-            "source": "EdgeScanner" if is_edge else "TradeCore"
+            "source": "EdgeScanner" if is_edge else "TradeCore",
+            "entry_date": str(datetime.now().date())
         }
         open_tickers.append(ticker)
 
