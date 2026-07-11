@@ -196,14 +196,17 @@ def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) ->
     sector_adj = get_sector_adjustment(result.ticker)
     confidence += sector_adj
 
-    # ── PAPER-ONLY EXPERIMENT (12 Jun 2026) ──────────────────────────────
-    # Cap applied AFTER all adjustments so regime/volume boosts can't undo it.
-    # Autopsy: MR raw >= 90 won 33% (avg -£5.06) vs 55% (avg +£17.12) for raw < 90.
-    # NFLX Raw=90 → Final=100 showed the pre-adjustment cap was ineffective.
+# ── PAPER-ONLY EXPERIMENTS ────────────────────────────────────────────
+    # Cap lowered 85→80 (11 Jul 2026): target 75-84% win-rate band.
+    # CHOPPY gate (11 Jul 2026): 0% win rate in CHOPPY — block MR entirely.
     raw_capped = False
-    if paper and "MEAN_REVERSION" in result.signal_type and confidence > 85.0:
-        confidence = 85.0
-        raw_capped = True
+    if paper and "MEAN_REVERSION" in result.signal_type:
+        if regime == "CHOPPY":
+            confidence = 0.0
+            notes += " | CHOPPYGate=blocked"
+        elif confidence > 80.0:
+            confidence = 80.0
+            raw_capped = True
 
     # Step 5 — Clamp (keep uncapped value for analysis)
     uncapped = confidence
@@ -219,7 +222,7 @@ def score_signal(result: SignalResult, df: pd.DataFrame, paper: bool = False) ->
 
     result.confidence = round(confidence, 1)
     result.direction = direction
-    cap_note = " | RawCap=85" if raw_capped else ""
+    cap_note = " | RawCap=80" if raw_capped else ""
     result.notes = (f"{notes} | Regime={regime} | "
                     f"VolAdj={volume_adj:+.1f} | SectorAdj={sector_adj:+.1f} | "
                     f"Raw={original_confidence:.1f}{cap_note} | "
