@@ -237,11 +237,12 @@ def run_scan(watchlist: list) -> list:
             }
         else:
             exit_check = check_exit_conditions(
-                current_price=current_price,
-                entry_price=pos["entry_price"],
-                stop_loss_pct=stop_loss_pct,
-                take_profit_pct=take_profit_pct,
-                highest_price=highest_price
+                        current_price=current_price,
+                        entry_price=pos["entry_price"],
+                        stop_loss_pct=stop_loss_pct,
+                        take_profit_pct=take_profit_pct,
+                        highest_price=highest_price,
+                        edge_tightening_trail=is_edge
             )
 
         if exit_check["should_exit"]:
