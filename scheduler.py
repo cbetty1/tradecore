@@ -414,6 +414,14 @@ def job_fast_lane_cleanup():
     except Exception as e:
         logger.error(f"Fast lane cleanup failed: {e}")
 
+def job_morning_fast_lane():
+    """07:30 mon-fri — Add last night's top scorers ready for US open."""
+    try:
+        from edge_scanner.fast_lane import run_morning_fast_lane
+        run_morning_fast_lane()
+    except Exception as e:
+        logger.error(f"Morning fast lane failed: {e}")
+        
 def job_daily_health_digest():
     """21:00 — Daily health summary to Telegram."""
     from monitoring.health_monitor import send_daily_digest
@@ -820,6 +828,13 @@ def start():
         CronTrigger(day_of_week="mon-fri", hour=7, minute=0),
         id="fast_lane_cleanup",
         name="Fast Lane Cleanup"
+    )
+
+    scheduler.add_job(
+        job_morning_fast_lane,
+        CronTrigger(day_of_week="mon-fri", hour=7, minute=30),
+        id="morning_fast_lane",
+        name="Morning Fast Lane"
     )
 
     logger.info("=" * 50)

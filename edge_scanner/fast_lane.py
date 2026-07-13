@@ -88,3 +88,53 @@ def run_fast_lane():
     else:
         logger.info("Fast lane — all scorers already in watchlist")
     logger.info("=== FAST LANE COMPLETE ===")
+
+    def run_morning_fast_lane():
+        """07:30 job — add last night's top scorers for today's US open."""
+    logger.info("=== MORNING FAST LANE STARTING ===")
+    cleanup_expired_temp_entries()
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT ticker, score, price_change_pct, rsi
+            FROM edge_scanner_results
+            WHERE scanned_at >= ?
+              AND scanned_at < ?
+              AND score >= ?
+              AND price_change_pct > 0
+            ORDER BY score DESC
+        """, (yesterday, today, MIN_SCORE)).fetchall()
+    scorers = [{"ticker": r[0], "score": r[1], "price_change_pct": r[2], "rsi": r[3]} for r in rows]
+    if not scorers:
+        logger.info("Morning fast lane — no qualifying scorers from last night")
+        return
+    data = load_watchlist()
+    existing_tickers = {s["ticker"] for s in data["watchlist"]}
+    added = []
+    for s in scorers:
+        ticker = s["ticker"]
+        if ticker in existing_tickers:
+            continue
+        entry = {
+            "ticker": ticker,
+            "name": ticker,
+            "exchange": "NASDAQ",
+            "currency": "USD",
+            "source": "EdgeScanner",
+            "temp": True,
+            "added_at": datetime.now().isoformat()
+        }
+        data["watchlist"].append(entry)
+        existing_tickers.add(ticker)
+        added.append(s)
+        logger.info(f"Morning fast lane — added {ticker} (score={s['score']}, +{s['price_change_pct']:.1f}%)")
+    if added:
+        save_watchlist(data)
+        lines = ["🌅 MORNING FAST LANE"]
+        for s in added:
+            lines.append(f"📡 {s['ticker']} — score {s['score']} | +{s['price_change_pct']:.1f}% yesterday | RSI {s['rsi']:.0f}")
+        lines.append("Ready for US open at 14:30")
+        send_message("\n".join(lines))
+        logger.info(f"Morning fast lane — {len(added)} stocks added")
+    logger.info("=== MORNING FAST LANE COMPLETE ===")
