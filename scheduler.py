@@ -396,6 +396,23 @@ def job_edge_scan():
     except Exception as e:
         logger.error(f"Edge scan failed: {e}")
 
+def job_fast_lane():
+    """15:00 mon-fri — Add today's top EdgeScanner scorers to watchlist temporarily."""
+    from monitoring.health_monitor import record_job_run
+    record_job_run("fast_lane")
+    try:
+        from edge_scanner.fast_lane import run_fast_lane
+        run_fast_lane()
+    except Exception as e:
+        logger.error(f"Fast lane failed: {e}")
+
+def job_fast_lane_cleanup():
+    """07:00 mon-fri — Remove expired temp watchlist entries."""
+    try:
+        from edge_scanner.fast_lane import cleanup_expired_temp_entries
+        cleanup_expired_temp_entries()
+    except Exception as e:
+        logger.error(f"Fast lane cleanup failed: {e}")
 
 def job_daily_health_digest():
     """21:00 — Daily health summary to Telegram."""
@@ -617,7 +634,6 @@ def job_edge_demotion_review():
     except Exception as e:
         logger.error(f"Edge demotion review failed: {e}")
 
-
 def start():
     """Register all jobs and start the scheduler."""
 
@@ -793,6 +809,18 @@ def start():
         name="EdgeScanner Demotion Review"
     )
 
+    scheduler.add_job(
+        job_fast_lane,
+        CronTrigger(day_of_week="mon-fri", hour=15, minute=0),
+        id="fast_lane",
+        name="EdgeScanner Fast Lane"
+    )
+    scheduler.add_job(
+        job_fast_lane_cleanup,
+        CronTrigger(day_of_week="mon-fri", hour=7, minute=0),
+        id="fast_lane_cleanup",
+        name="Fast Lane Cleanup"
+    )
 
     logger.info("=" * 50)
     logger.info("  TradeCore Scheduler Starting")
