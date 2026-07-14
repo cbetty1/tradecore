@@ -89,8 +89,8 @@ def run_fast_lane():
         logger.info("Fast lane — all scorers already in watchlist")
     logger.info("=== FAST LANE COMPLETE ===")
 
-    def run_morning_fast_lane():
-        """07:30 job — add last night's top scorers for today's US open."""
+def run_morning_fast_lane():
+    """07:30 job — add last night's top scorers for today's US open."""
     logger.info("=== MORNING FAST LANE STARTING ===")
     cleanup_expired_temp_entries()
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
