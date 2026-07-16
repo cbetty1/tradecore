@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 TICKER_MAP_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "t212_tickers.json")
 
 # ETFs that do not support fractional shares on T212 — whole numbers only
-NON_FRACTIONAL_TICKERS = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ", "AZNl_EQ", "SHELl_EQ", "HSBAl_EQ", "CPIX_US_EQ", "CNMD_US_EQ"}
+NON_FRACTIONAL_TICKERS = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ", "AZNl_EQ", "SHELl_EQ", "HSBAl_EQ", "CPIX_US_EQ", "CNMD_US_EQ", "CRDL_CA_EQ"}
 
 def _load_ticker_map() -> dict:
     """Load yfinance -> T212 ticker mapping."""

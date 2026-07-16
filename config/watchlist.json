@@ -1,62 +1,328 @@
 {
   "watchlist": [
-    { "ticker": "NVDA", "name": "NVIDIA", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "AAPL", "name": "Apple", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "AMD", "name": "AMD", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "MSFT", "name": "Microsoft", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "AMZN", "name": "Amazon", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "TSLA", "name": "Tesla", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "PLTR", "name": "Palantir", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "META", "name": "Meta", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "GOOGL", "name": "Alphabet", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "ASML", "name": "ASML", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "IBM", "name": "IBM", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "LLY", "name": "Eli Lilly", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "UNH", "name": "UnitedHealth", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "ISRG", "name": "Intuitive Surgical", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "JPM", "name": "JPMorgan", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "V", "name": "Visa", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "GS", "name": "Goldman Sachs", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "COST", "name": "Costco", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "NKE", "name": "Nike", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "CAT", "name": "Caterpillar", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "HON", "name": "Honeywell", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "XOM", "name": "ExxonMobil", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "HPQ", "name": "HP Inc", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "DELL", "name": "Dell Technologies", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "CRM", "name": "Salesforce", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "ORCL", "name": "Oracle", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "INTC", "name": "Intel", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "AZN.L", "name": "AstraZeneca", "exchange": "LSE", "currency": "GBX" },
-    { "ticker": "SHEL.L", "name": "Shell", "exchange": "LSE", "currency": "GBX" },
-    { "ticker": "HSBA.L", "name": "HSBC", "exchange": "LSE", "currency": "GBX" },
-    { "ticker": "SPCX", "name": "SpaceX", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "DHR", "name": "Danaher", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "TMO", "name": "Thermo Fisher Scientific", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "DE", "name": "John Deere", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "INTU", "name": "Intuit", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "HD", "name": "Home Depot", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "AMGN", "name": "Amgen", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "JNJ", "name": "Johnson & Johnson", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "CVX", "name": "Chevron", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "COP", "name": "ConocoPhillips", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "EOG", "name": "EOG Resources", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "MS", "name": "Morgan Stanley", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "BLK", "name": "BlackRock", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "NFLX", "name": "Netflix", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "SBUX", "name": "Starbucks", "exchange": "NASDAQ", "currency": "USD" },
-    { "ticker": "MCD", "name": "McDonald's", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "BA", "name": "Boeing", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "RTX", "name": "RTX Corporation", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "NOW", "name": "ServiceNow", "exchange": "NYSE", "currency": "USD" },
-    { "ticker": "ADBE", "name": "Adobe", "exchange": "NASDAQ", "currency": "USD" }
-  ],
-  "sectors": [
-    { "ticker": "XLK", "name": "Technology" },
-    { "ticker": "XLF", "name": "Financials" },
-    { "ticker": "XLE", "name": "Energy" },
-    { "ticker": "XLV", "name": "Healthcare" },
-    { "ticker": "XLI", "name": "Industrials" },
-    { "ticker": "XLC", "name": "Communications" }
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AAPL",
+      "name": "Apple",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AMD",
+      "name": "AMD",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AMZN",
+      "name": "Amazon",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "PLTR",
+      "name": "Palantir",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "META",
+      "name": "Meta",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "ASML",
+      "name": "ASML",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "IBM",
+      "name": "IBM",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "LLY",
+      "name": "Eli Lilly",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "UNH",
+      "name": "UnitedHealth",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "ISRG",
+      "name": "Intuitive Surgical",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "JPM",
+      "name": "JPMorgan",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "V",
+      "name": "Visa",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "GS",
+      "name": "Goldman Sachs",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "COST",
+      "name": "Costco",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "NKE",
+      "name": "Nike",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "CAT",
+      "name": "Caterpillar",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "HON",
+      "name": "Honeywell",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "XOM",
+      "name": "ExxonMobil",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "HPQ",
+      "name": "HP Inc",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "DELL",
+      "name": "Dell Technologies",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "CRM",
+      "name": "Salesforce",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "ORCL",
+      "name": "Oracle",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "INTC",
+      "name": "Intel",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AZN.L",
+      "name": "AstraZeneca",
+      "exchange": "LSE",
+      "currency": "GBX"
+    },
+    {
+      "ticker": "SHEL.L",
+      "name": "Shell",
+      "exchange": "LSE",
+      "currency": "GBX"
+    },
+    {
+      "ticker": "HSBA.L",
+      "name": "HSBC",
+      "exchange": "LSE",
+      "currency": "GBX"
+    },
+    {
+      "ticker": "SPCX",
+      "name": "SpaceX",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "DHR",
+      "name": "Danaher",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "TMO",
+      "name": "Thermo Fisher Scientific",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "DE",
+      "name": "John Deere",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "INTU",
+      "name": "Intuit",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "HD",
+      "name": "Home Depot",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AMGN",
+      "name": "Amgen",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "JNJ",
+      "name": "Johnson & Johnson",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "CVX",
+      "name": "Chevron",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "COP",
+      "name": "ConocoPhillips",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "EOG",
+      "name": "EOG Resources",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "MS",
+      "name": "Morgan Stanley",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "BLK",
+      "name": "BlackRock",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "NFLX",
+      "name": "Netflix",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "SBUX",
+      "name": "Starbucks",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "MCD",
+      "name": "McDonald's",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "BA",
+      "name": "Boeing",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "RTX",
+      "name": "RTX Corporation",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "NOW",
+      "name": "ServiceNow",
+      "exchange": "NYSE",
+      "currency": "USD"
+    },
+    {
+      "ticker": "ADBE",
+      "name": "Adobe",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "ticker": "AEYE",
+      "name": "AEYE",
+      "source": "EdgeScanner"
+    },
+    {
+    {
+      "ticker": "CRDL",
+      "name": "CRDL",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-07-15T07:30:00.006305"
+    },
+    {
+      "ticker": "BEAT",
+      "name": "BEAT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-07-16T07:30:00.006865"
+    }
   ]
 }
