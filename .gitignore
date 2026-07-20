@@ -13,3 +13,6 @@ portfolio_state.json
 risk_limits.json
 portfolio_state.json
 portfolio_state_paper.json
+*.csv
+*.db-shm
+*.db-wal
