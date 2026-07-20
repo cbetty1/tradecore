@@ -509,6 +509,18 @@ def run_scan(watchlist: list) -> list:
                 continue
             else:
                 logger.info(f"LIVE BUY CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
+                # ── FIX: Mark slot as filled IMMEDIATELY to prevent duplicate buys ──
+                state["positions"][ticker] = {
+                    "shares": size["shares"],
+                    "entry_price": current_price,
+                    "highest_price": current_price,
+                    "trade_id": None,
+                    "invested": size["invest_amount"],
+                    "source": "EdgeScanner" if is_edge else "TradeCore",
+                    "entry_date": str(datetime.now().date())
+                }
+                open_tickers.append(ticker)
+                save_portfolio_state(state)
 
         signal_id = insert_signal(
             ticker=ticker,
