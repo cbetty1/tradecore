@@ -306,23 +306,19 @@
       "source": "EdgeScanner"
     },
     {
-    {
-      "ticker": "CRDL",
-      "name": "CRDL",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-07-15T07:30:00.006305"
+      "ticker": "APVO",
+      "name": "APVO",
+      "source": "EdgeScanner"
     },
     {
-      "ticker": "BEAT",
-      "name": "BEAT",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-07-16T07:30:00.006865"
+      "ticker": "CRMT",
+      "name": "CRMT",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "CNMD",
+      "name": "CNMD",
+      "source": "EdgeScanner"
     }
   ]
 }
