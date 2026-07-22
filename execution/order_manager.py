@@ -203,6 +203,12 @@ def run_scan(watchlist: list) -> list:
         logger.critical(f"KILL SWITCH ACTIVE — {kill['reason']} — No trades will be placed.")
         return [{"action": "KILL_SWITCH", "reason": kill["reason"]}]
 
+    # ── CHOPPY regime gate — block new entries, exits still fire ─────────────
+    current_regime = get_market_regime()
+    choppy_mode = (current_regime == "CHOPPY")
+    if choppy_mode:
+        logger.info("Market regime CHOPPY — new entries blocked, exits still active")
+
     # ── Monitor Existing Positions ────────────────────────────────────────────
     for ticker, pos in list(state["positions"].items()):
         current_price = get_latest_price(ticker)
@@ -358,6 +364,9 @@ def run_scan(watchlist: list) -> list:
 
         if ticker in recently_sold:
             logger.info(f"Skipping {ticker} — sold within last 4 hours (cooldown)")
+            continue
+        if choppy_mode:
+            logger.info(f"Skipping {ticker} — CHOPPY regime, no new entries")
             continue
 
         # ── Slot check — TC and EdgeScanner slots tracked separately ──────
