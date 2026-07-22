@@ -361,7 +361,9 @@ def run_scan(watchlist: list) -> list:
             continue
 
         # ── Slot check — TC and EdgeScanner slots tracked separately ──────
-        tc_count, edge_count = _count_positions_by_source(state["positions"], watchlist)
+        # Use open_tickers for accurate in-loop slot counting
+        current_positions = {t: state["positions"].get(t, {}) for t in open_tickers}
+        tc_count, edge_count = _count_positions_by_source(current_positions, watchlist)
 
         if is_edge:
             if edge_count >= edge_max:
