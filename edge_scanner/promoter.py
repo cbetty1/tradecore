@@ -10,6 +10,8 @@ Promotion criteria:
   - Minimum 66% win rate on those signals (2 of 3)
   - Minimum +15% return since first signal
   - Not already on live watchlist
+  - No currently open live position in this stock
+  - If previously live traded: minimum 2 completed live trades with 50%+ win rate
   - Live watchlist under hard cap (60 stocks)
 
 Demotion criteria (Sunday review):
@@ -35,6 +37,10 @@ MIN_SIGNALS = 3
 MIN_WIN_RATE = 0.66
 MIN_RETURN_PCT = 15.0
 LOOKBACK_DAYS = 14
+
+# Re-promotion thresholds (for stocks previously live traded)
+MIN_LIVE_TRADES_FOR_REPROMOTION = 2
+MIN_LIVE_WIN_RATE_FOR_REPROMOTION = 0.50
 
 # Demotion thresholds
 DEMOTION_NO_SIGNAL_DAYS = 14
@@ -67,6 +73,34 @@ def _get_open_position_tickers() -> set:
         return set()
 
 
+def _get_live_trade_stats(ticker: str) -> dict:
+    """
+    Return live trade stats for a ticker.
+    Used to gate re-promotion — stock must have 2+ completed live trades
+    with 50%+ win rate before it can be re-promoted.
+    """
+    try:
+        with get_connection() as conn:
+            closed = conn.execute(
+                """SELECT pnl FROM trades
+                   WHERE ticker = ? AND status = 'CLOSED' AND paper = 0
+                   AND pnl IS NOT NULL""",
+                (ticker,)
+            ).fetchall()
+
+            if not closed:
+                return {"count": 0, "win_rate": 0.0}
+
+            wins = sum(1 for r in closed if r["pnl"] > 0)
+            return {
+                "count": len(closed),
+                "win_rate": wins / len(closed)
+            }
+    except Exception as e:
+        logger.warning(f"Could not fetch live trade stats for {ticker}: {e}")
+        return {"count": 0, "win_rate": 0.0}
+
+
 def _get_promotion_candidates() -> list:
     """
     Query edge_scanner_outcomes for stocks meeting promotion criteria.
@@ -77,7 +111,6 @@ def _get_promotion_candidates() -> list:
 
     try:
         with get_connection() as conn:
-            # Get all tickers with signals in the lookback window
             tickers = conn.execute(
                 """SELECT DISTINCT ticker FROM edge_scanner_outcomes
                    WHERE signal_date >= ?""",
@@ -87,7 +120,6 @@ def _get_promotion_candidates() -> list:
             for row in tickers:
                 ticker = row["ticker"]
 
-                # Get all outcomes in window
                 outcomes = conn.execute(
                     """SELECT pct_change, signal_price FROM edge_scanner_outcomes
                        WHERE ticker = ? AND signal_date >= ?
@@ -98,13 +130,11 @@ def _get_promotion_candidates() -> list:
                 if len(outcomes) < MIN_SIGNALS:
                     continue
 
-                # Win rate check
                 wins = sum(1 for o in outcomes if o["pct_change"] and o["pct_change"] > 0)
                 win_rate = wins / len(outcomes)
                 if win_rate < MIN_WIN_RATE:
                     continue
 
-                # Return since first signal
                 first_price = outcomes[0]["signal_price"]
                 latest_outcome = conn.execute(
                     """SELECT outcome_price FROM edge_scanner_outcomes
@@ -142,6 +172,7 @@ def run_promotion_check():
 
     watchlist = _load_watchlist()
     live_tickers = {s["ticker"] for s in watchlist}
+    open_positions = _get_open_position_tickers()
 
     if len(watchlist) >= WATCHLIST_CAP:
         logger.info(f"Watchlist at cap ({WATCHLIST_CAP}) — no promotions possible")
@@ -153,20 +184,42 @@ def run_promotion_check():
     for c in candidates:
         ticker = c["ticker"]
 
+        # Skip if already on watchlist
         if ticker in live_tickers:
             continue
+
+        # Skip if currently has an open live position
+        if ticker in open_positions:
+            logger.info(f"Skipping {ticker} — open live position exists")
+            continue
+
+        # If previously live traded, require minimum 2 trades with 50%+ win rate
+        live_stats = _get_live_trade_stats(ticker)
+        if live_stats["count"] > 0:
+            if live_stats["count"] < MIN_LIVE_TRADES_FOR_REPROMOTION:
+                logger.info(
+                    f"Skipping {ticker} — only {live_stats['count']} live trade(s), "
+                    f"need {MIN_LIVE_TRADES_FOR_REPROMOTION} before re-promotion"
+                )
+                continue
+            if live_stats["win_rate"] < MIN_LIVE_WIN_RATE_FOR_REPROMOTION:
+                logger.info(
+                    f"Skipping {ticker} — live win rate {live_stats['win_rate']*100:.0f}% "
+                    f"below {MIN_LIVE_WIN_RATE_FOR_REPROMOTION*100:.0f}% threshold"
+                )
+                continue
 
         if len(watchlist) >= WATCHLIST_CAP:
             logger.info(f"Watchlist cap reached ({WATCHLIST_CAP}) — stopping promotions")
             break
 
-        # Promote
         watchlist.append({"ticker": ticker, "name": ticker, "source": "EdgeScanner"})
         live_tickers.add(ticker)
         promoted.append(c)
         logger.info(
             f"PROMOTED: {ticker} | Signals={c['signals']} | "
-            f"WinRate={c['win_rate']}% | Return={c['total_return']}%"
+            f"WinRate={c['win_rate']}% | Return={c['total_return']}% | "
+            f"LiveTrades={live_stats['count']}"
         )
 
     if promoted:
@@ -193,12 +246,10 @@ def run_demotion_review():
     for stock in watchlist:
         ticker = stock["ticker"]
 
-        # Only review EdgeScanner-promoted stocks
         if stock.get("source") != "EdgeScanner":
             new_watchlist.append(stock)
             continue
 
-        # Never demote if position is open
         if ticker in open_positions:
             logger.info(f"Skipping demotion check for {ticker} — open position")
             new_watchlist.append(stock)
@@ -206,7 +257,6 @@ def run_demotion_review():
 
         try:
             with get_connection() as conn:
-                # Check for recent signals
                 recent = conn.execute(
                     """SELECT COUNT(*) as count FROM edge_scanner_outcomes
                        WHERE ticker = ? AND signal_date >= ?""",
@@ -218,7 +268,6 @@ def run_demotion_review():
                     logger.info(f"DEMOTED: {ticker} — no signals in 14 days")
                     continue
 
-                # Check win rate on last N signals
                 last_signals = conn.execute(
                     """SELECT pct_change FROM edge_scanner_outcomes
                        WHERE ticker = ? AND pct_change IS NOT NULL
