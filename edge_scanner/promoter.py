@@ -11,6 +11,7 @@ Promotion criteria:
   - Minimum +15% return since first signal
   - Not already on live watchlist
   - No currently open live position in this stock
+  - Valid T212 ticker mapping exists
   - If previously live traded: minimum 2 completed live trades with 50%+ win rate
   - Live watchlist under hard cap (60 stocks)
 
@@ -174,6 +175,10 @@ def run_promotion_check():
     live_tickers = {s["ticker"] for s in watchlist}
     open_positions = _get_open_position_tickers()
 
+    # Load T212 ticker map for validation
+    from execution.t212_broker import _load_ticker_map
+    ticker_map = _load_ticker_map()
+
     if len(watchlist) >= WATCHLIST_CAP:
         logger.info(f"Watchlist at cap ({WATCHLIST_CAP}) — no promotions possible")
         return
@@ -191,6 +196,11 @@ def run_promotion_check():
         # Skip if currently has an open live position
         if ticker in open_positions:
             logger.info(f"Skipping {ticker} — open live position exists")
+            continue
+
+        # Skip if no T212 ticker mapping exists
+        if ticker not in ticker_map:
+            logger.warning(f"Skipping {ticker} — no T212 ticker mapping found")
             continue
 
         # If previously live traded, require minimum 2 trades with 50%+ win rate
