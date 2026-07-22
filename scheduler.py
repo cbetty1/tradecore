@@ -337,23 +337,23 @@ def job_daily_report():
         with get_connection() as conn:
             trades_today = conn.execute(
                 """SELECT COUNT(*) as count FROM trades
-                   WHERE date(opened_at) = ?
-                   OR date(closed_at) = ?""",
+                WHERE (date(opened_at) = ? OR date(closed_at) = ?)
+                AND paper = 0""",
                 (today, today)
             ).fetchone()["count"]
 
-        # After
-        buys_today = conn.execute(
-            """SELECT COUNT(*) as count FROM trades
-            WHERE date(opened_at) = ? AND direction = 'BUY' AND paper = 0""",
-            (today,)
-        ).fetchone()["count"]
+            buys_today = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                WHERE date(opened_at) = ? AND direction = 'BUY' AND paper = 0""",
+                (today,)
+            ).fetchone()["count"]
 
-        sells_today = conn.execute(
-            """SELECT COUNT(*) as count FROM trades
-            WHERE date(closed_at) = ? AND direction = 'BUY' AND status = 'CLOSED' AND paper = 0""",
-            (today,)
-        ).fetchone()["count"]
+            sells_today = conn.execute(
+                """SELECT COUNT(*) as count FROM trades
+                WHERE date(closed_at) = ? AND direction = 'BUY'
+                AND status = 'CLOSED' AND paper = 0""",
+                (today,)
+            ).fetchone()["count"]
 
         send_daily_report(
             portfolio_value=portfolio_value,
