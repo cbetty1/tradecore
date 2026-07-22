@@ -192,7 +192,7 @@ class T212Broker(BrokerBase):
 
         order_data = {
             "ticker": t212_ticker,
-            "quantity": round(quantity, 6),
+            "quantity": quantity,
             "extendedHours": False
         }
 
@@ -249,7 +249,7 @@ class T212Broker(BrokerBase):
 
         order_data = {
             "ticker": t212_ticker,
-            "quantity": -round(shares, 6),  # T212 uses negative for sells
+            "quantity": -shares,  # T212 uses negative for sells
             "extendedHours": False
         }
 
