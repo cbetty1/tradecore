@@ -81,8 +81,8 @@ def _count_positions_by_source(positions: dict, watchlist: list) -> tuple:
     """Return (tc_count, edge_count) of open positions."""
     tc_count = 0
     edge_count = 0
-    for ticker in positions:
-        if _is_edge_ticker(ticker, watchlist):
+    for ticker, pos in positions.items():
+        if pos.get("source") == "EdgeScanner":
             edge_count += 1
         else:
             tc_count += 1
