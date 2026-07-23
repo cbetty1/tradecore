@@ -285,17 +285,6 @@ def run_scan(watchlist: list) -> list:
                     continue
                 else:
                     logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
-                    from notifications.telegram import send_trade_alert
-                    send_trade_alert(
-                        action="SELL",
-                        ticker=ticker,
-                        price=current_price,
-                        shares=shares,
-                        amount=round(sell_value, 2),
-                        confidence=0,
-                        pnl=round(pnl, 2),
-                        reason=exit_check["reason"]
-                    )
                     trade_id = pos.get("trade_id")
                     if trade_id:
                         close_trade(trade_id, pnl)

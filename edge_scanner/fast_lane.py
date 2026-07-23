@@ -14,7 +14,8 @@ T212_TICKERS_PATH = "config/t212_tickers.json"
 
 def load_t212_tickers():
     with open(T212_TICKERS_PATH) as f:
-        return json.load(f)
+        data = json.load(f)
+        return data.get("ticker_map", data)
 
 
 def load_watchlist():
