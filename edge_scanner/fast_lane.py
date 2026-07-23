@@ -10,6 +10,12 @@ WATCHLIST_PATH = "config/watchlist.json"
 MIN_SCORE = 75.0
 TEMP_TTL_HOURS = 48
 
+T212_TICKERS_PATH = "config/t212_tickers.json"
+
+def load_t212_tickers():
+    with open(T212_TICKERS_PATH) as f:
+        return json.load(f)
+
 
 def load_watchlist():
     with open(WATCHLIST_PATH) as f:
@@ -58,11 +64,15 @@ def run_fast_lane():
         return
     data = load_watchlist()
     existing_tickers = {s["ticker"] for s in data["watchlist"]}
+    t212_tickers = load_t212_tickers()
     added = []
     for s in scorers:
         ticker = s["ticker"]
         if ticker in existing_tickers:
             logger.info(f"Fast lane — {ticker} already in watchlist, skipping")
+            continue
+        if ticker not in t212_tickers:
+            logger.warning(f"Fast lane — {ticker} skipped, no T212 ticker mapping")
             continue
         entry = {
             "ticker": ticker,
@@ -89,6 +99,7 @@ def run_fast_lane():
         logger.info("Fast lane — all scorers already in watchlist")
     logger.info("=== FAST LANE COMPLETE ===")
 
+
 def run_morning_fast_lane():
     """07:30 job — add last night's top scorers for today's US open."""
     logger.info("=== MORNING FAST LANE STARTING ===")
@@ -111,10 +122,14 @@ def run_morning_fast_lane():
         return
     data = load_watchlist()
     existing_tickers = {s["ticker"] for s in data["watchlist"]}
+    t212_tickers = load_t212_tickers()
     added = []
     for s in scorers:
         ticker = s["ticker"]
         if ticker in existing_tickers:
+            continue
+        if ticker not in t212_tickers:
+            logger.warning(f"Morning fast lane — {ticker} skipped, no T212 ticker mapping")
             continue
         entry = {
             "ticker": ticker,
