@@ -360,7 +360,11 @@ def run_scan(watchlist: list) -> list:
         is_edge = stock.get("source") == "EdgeScanner"
 
         if ticker in open_tickers:
-            continue
+                    continue
+        open_db_trades = get_open_trades(paper=0)
+        if any(row["ticker"] == ticker for row in open_db_trades):
+                    logger.info(f"Skipping {ticker} — open trade already exists in DB")
+                    continue
 
         if ticker in recently_sold:
             logger.info(f"Skipping {ticker} — sold within last 4 hours (cooldown)")
