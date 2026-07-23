@@ -33,6 +33,8 @@ NON_FRACTIONAL_TICKERS = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa
 # Tickers that only support 2 decimal place precision on T212
 MAX_2DP_TICKERS = {"FB_US_EQ", "GS_US_EQ", "HPQ_US_EQ"}
 
+MAX_4DP_TICKERS = {"NVDA_US_EQ"}
+
 def _load_ticker_map() -> dict:
     """Load yfinance -> T212 ticker mapping."""
     try:
@@ -185,6 +187,14 @@ class T212Broker(BrokerBase):
                                  f"size too small for 1 share"}
             logger.info(f"Non-fractional ETF: {ticker} — rounding to {quantity} whole shares")
 
+        # Some tickers only support 4 decimal place precision
+        if ticker in MAX_4DP_TICKERS:
+            quantity = round(quantity, 4)
+            logger.info(f"4dp precision ticker: {ticker} — rounding to {quantity}")
+        elif ticker in MAX_2DP_TICKERS:
+            quantity = round(quantity, 2)
+            logger.info(f"2dp precision ticker: {ticker} — rounding to {quantity}")
+
         # Some tickers only support 2 decimal place precision
         if t212_ticker in MAX_2DP_TICKERS:
             quantity = round(quantity, 2)
@@ -241,6 +251,14 @@ class T212Broker(BrokerBase):
                 return {"error": f"{ticker} requires whole shares but "
                                  f"position size too small for 1 share"}
             logger.info(f"Non-fractional ETF: {ticker} — rounding to {shares} whole shares")
+
+
+        if ticker in MAX_4DP_TICKERS:
+            quantity = round(quantity, 4)
+            logger.info(f"4dp precision ticker: {ticker} — rounding to {quantity}")
+        elif ticker in MAX_2DP_TICKERS:
+            quantity = round(quantity, 2)
+            logger.info(f"2dp precision ticker: {ticker} — rounding to {quantity}")
 
         # Some tickers only support 2 decimal place precision
         if t212_ticker in MAX_2DP_TICKERS:
