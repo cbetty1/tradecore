@@ -326,22 +326,11 @@
       "source": "EdgeScanner"
     },
     {
-      "ticker": "BNRG",
-      "name": "BNRG",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-07-22T07:30:00.007409"
-    },
-    {
-      "ticker": "NCSM",
-      "name": "NCSM",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-07-22T07:30:00.008031"
+      "ticker": "CRDL",
+      "name": "Cardiol Therapeutics",
+      "exchange": "TSX",
+      "currency": "CAD",
+      "source": "EdgeScanner"
     }
   ]
 }
