@@ -242,13 +242,16 @@ def run_scan(watchlist: list) -> list:
                 "pnl_pct": round(((current_price - pos["entry_price"]) / pos["entry_price"]) * 100, 2)
             }
         else:
+            min_hold = limits.get("min_hold_days_momentum", 3) if pos.get("signal_type") == "MOMENTUM" else 0
             exit_check = check_exit_conditions(
                         current_price=current_price,
                         entry_price=pos["entry_price"],
                         stop_loss_pct=stop_loss_pct,
                         take_profit_pct=take_profit_pct,
                         highest_price=highest_price,
-                        edge_tightening_trail=is_edge
+                        edge_tightening_trail=is_edge,
+                        min_hold_days=min_hold,
+                        entry_date=pos.get("entry_date")
             )
 
         if exit_check["should_exit"]:
@@ -521,7 +524,8 @@ def run_scan(watchlist: list) -> list:
                     "trade_id": None,
                     "invested": size["invest_amount"],
                     "source": "EdgeScanner" if is_edge else "TradeCore",
-                    "entry_date": str(datetime.now().date())
+                    "entry_date": str(datetime.now().date()),
+            "signal_type": final_signal.signal_type
                 }
                 open_tickers.append(ticker)
                 save_portfolio_state(state)

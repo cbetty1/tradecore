@@ -2387,6 +2387,902 @@
       "name": "D-Wave Quantum",
       "exchange": "NYSE",
       "currency": "USD"
+    },
+    {
+      "ticker": "MMSI",
+      "name": "MMSI"
+    },
+    {
+      "ticker": "ACCD",
+      "name": "ACCD"
+    },
+    {
+      "ticker": "HIMS",
+      "name": "HIMS"
+    },
+    {
+      "ticker": "PRVA",
+      "name": "PRVA"
+    },
+    {
+      "ticker": "CERT",
+      "name": "CERT"
+    },
+    {
+      "ticker": "PRCT",
+      "name": "PRCT"
+    },
+    {
+      "ticker": "GTLB",
+      "name": "GTLB"
+    },
+    {
+      "ticker": "DDOG",
+      "name": "DDOG"
+    },
+    {
+      "ticker": "MDB",
+      "name": "MDB"
+    },
+    {
+      "ticker": "NET",
+      "name": "NET"
+    },
+    {
+      "ticker": "ESTC",
+      "name": "ESTC"
+    },
+    {
+      "ticker": "SUMO",
+      "name": "SUMO"
+    },
+    {
+      "ticker": "JAMF",
+      "name": "JAMF"
+    },
+    {
+      "ticker": "BRZE",
+      "name": "BRZE"
+    },
+    {
+      "ticker": "SPRK",
+      "name": "SPRK"
+    },
+    {
+      "ticker": "RDDT",
+      "name": "RDDT"
+    },
+    {
+      "ticker": "PIPR",
+      "name": "PIPR"
+    },
+    {
+      "ticker": "VIRT",
+      "name": "VIRT"
+    },
+    {
+      "ticker": "MKTX",
+      "name": "MKTX"
+    },
+    {
+      "ticker": "TFIN",
+      "name": "TFIN"
+    },
+    {
+      "ticker": "WING",
+      "name": "WING"
+    },
+    {
+      "ticker": "PTLO",
+      "name": "PTLO"
+    },
+    {
+      "ticker": "CAVA",
+      "name": "CAVA"
+    },
+    {
+      "ticker": "BROS",
+      "name": "BROS"
+    },
+    {
+      "ticker": "DNUT",
+      "name": "DNUT"
+    },
+    {
+      "ticker": "LOCO",
+      "name": "LOCO"
+    },
+    {
+      "ticker": "NAPA",
+      "name": "NAPA"
+    },
+    {
+      "ticker": "HAYW",
+      "name": "HAYW"
+    },
+    {
+      "ticker": "KTOS",
+      "name": "KTOS"
+    },
+    {
+      "ticker": "LUNR",
+      "name": "LUNR"
+    },
+    {
+      "ticker": "HII",
+      "name": "HII"
+    },
+    {
+      "ticker": "MOOG",
+      "name": "MOOG"
+    },
+    {
+      "ticker": "CHRD",
+      "name": "CHRD"
+    },
+    {
+      "ticker": "CIVI",
+      "name": "CIVI"
+    },
+    {
+      "ticker": "VTLE",
+      "name": "VTLE"
+    },
+    {
+      "ticker": "MTDR",
+      "name": "MTDR"
+    },
+    {
+      "ticker": "ESTE",
+      "name": "ESTE"
+    },
+    {
+      "ticker": "TALO",
+      "name": "TALO"
+    },
+    {
+      "ticker": "IIPR",
+      "name": "IIPR"
+    },
+    {
+      "ticker": "EPRT",
+      "name": "EPRT"
+    },
+    {
+      "ticker": "KRYS",
+      "name": "KRYS"
+    },
+    {
+      "ticker": "VKTX",
+      "name": "VKTX"
+    },
+    {
+      "ticker": "KYMR",
+      "name": "KYMR"
+    },
+    {
+      "ticker": "NUVL",
+      "name": "NUVL"
+    },
+    {
+      "ticker": "ETNB",
+      "name": "ETNB"
+    },
+    {
+      "ticker": "IMVT",
+      "name": "IMVT"
+    },
+    {
+      "ticker": "ROIV",
+      "name": "ROIV"
+    },
+    {
+      "ticker": "MP",
+      "name": "MP"
+    },
+    {
+      "ticker": "ALTM",
+      "name": "ALTM"
+    },
+    {
+      "ticker": "SILV",
+      "name": "SILV"
+    },
+    {
+      "ticker": "MAG",
+      "name": "MAG"
+    },
+    {
+      "ticker": "SGML",
+      "name": "SGML"
+    },
+    {
+      "ticker": "LLYVK",
+      "name": "LLYVK"
+    },
+    {
+      "ticker": "SVM",
+      "name": "SVM"
+    },
+    {
+      "ticker": "TGTX",
+      "name": "TGTX"
+    },
+    {
+      "ticker": "SRRK",
+      "name": "SRRK"
+    },
+    {
+      "ticker": "DAWN",
+      "name": "DAWN"
+    },
+    {
+      "ticker": "RLAY",
+      "name": "RLAY"
+    },
+    {
+      "ticker": "ACLX",
+      "name": "ACLX"
+    },
+    {
+      "ticker": "CGON",
+      "name": "CGON"
+    },
+    {
+      "ticker": "FULC",
+      "name": "FULC"
+    },
+    {
+      "ticker": "PRAX",
+      "name": "PRAX"
+    },
+    {
+      "ticker": "RCKT",
+      "name": "RCKT"
+    },
+    {
+      "ticker": "GPCR",
+      "name": "GPCR"
+    },
+    {
+      "ticker": "KROS",
+      "name": "KROS"
+    },
+    {
+      "ticker": "RVMD",
+      "name": "RVMD"
+    },
+    {
+      "ticker": "VERA",
+      "name": "VERA"
+    },
+    {
+      "ticker": "RYTM",
+      "name": "RYTM"
+    },
+    {
+      "ticker": "BLUE",
+      "name": "BLUE"
+    },
+    {
+      "ticker": "BEAM",
+      "name": "BEAM"
+    },
+    {
+      "ticker": "EDIT",
+      "name": "EDIT"
+    },
+    {
+      "ticker": "NTLA",
+      "name": "NTLA"
+    },
+    {
+      "ticker": "SMAR",
+      "name": "SMAR"
+    },
+    {
+      "ticker": "ALTR",
+      "name": "ALTR"
+    },
+    {
+      "ticker": "SPSC",
+      "name": "SPSC"
+    },
+    {
+      "ticker": "NCNO",
+      "name": "NCNO"
+    },
+    {
+      "ticker": "PRGS",
+      "name": "PRGS"
+    },
+    {
+      "ticker": "MTTR",
+      "name": "MTTR"
+    },
+    {
+      "ticker": "OHAI",
+      "name": "OHAI"
+    },
+    {
+      "ticker": "TASK",
+      "name": "TASK"
+    },
+    {
+      "ticker": "XMTR",
+      "name": "XMTR"
+    },
+    {
+      "ticker": "STER",
+      "name": "STER"
+    },
+    {
+      "ticker": "SDGR",
+      "name": "SDGR"
+    },
+    {
+      "ticker": "EVTC",
+      "name": "EVTC"
+    },
+    {
+      "ticker": "HTLF",
+      "name": "HTLF"
+    },
+    {
+      "ticker": "FBIZ",
+      "name": "FBIZ"
+    },
+    {
+      "ticker": "FBNC",
+      "name": "FBNC"
+    },
+    {
+      "ticker": "ESSA",
+      "name": "ESSA"
+    },
+    {
+      "ticker": "ECPG",
+      "name": "ECPG"
+    },
+    {
+      "ticker": "BYND",
+      "name": "BYND"
+    },
+    {
+      "ticker": "XPOF",
+      "name": "XPOF"
+    },
+    {
+      "ticker": "PLBY",
+      "name": "PLBY"
+    },
+    {
+      "ticker": "LAZY",
+      "name": "LAZY"
+    },
+    {
+      "ticker": "LESL",
+      "name": "LESL"
+    },
+    {
+      "ticker": "ELVN",
+      "name": "ELVN"
+    },
+    {
+      "ticker": "CURV",
+      "name": "CURV"
+    },
+    {
+      "ticker": "SKIN",
+      "name": "SKIN"
+    },
+    {
+      "ticker": "ELF",
+      "name": "ELF"
+    },
+    {
+      "ticker": "PRPL",
+      "name": "PRPL"
+    },
+    {
+      "ticker": "ACHR",
+      "name": "ACHR"
+    },
+    {
+      "ticker": "JOBY",
+      "name": "JOBY"
+    },
+    {
+      "ticker": "LILM",
+      "name": "LILM"
+    },
+    {
+      "ticker": "EVEX",
+      "name": "EVEX"
+    },
+    {
+      "ticker": "ARCHER",
+      "name": "ARCHER"
+    },
+    {
+      "ticker": "BLDE",
+      "name": "BLDE"
+    },
+    {
+      "ticker": "UAVS",
+      "name": "UAVS"
+    },
+    {
+      "ticker": "SPIR",
+      "name": "SPIR"
+    },
+    {
+      "ticker": "KLIC",
+      "name": "KLIC"
+    },
+    {
+      "ticker": "CODA",
+      "name": "CODA"
+    },
+    {
+      "ticker": "SHLS",
+      "name": "SHLS"
+    },
+    {
+      "ticker": "STEM",
+      "name": "STEM"
+    },
+    {
+      "ticker": "FLUX",
+      "name": "FLUX"
+    },
+    {
+      "ticker": "OPAL",
+      "name": "OPAL"
+    },
+    {
+      "ticker": "AMRC",
+      "name": "AMRC"
+    },
+    {
+      "ticker": "GEVO",
+      "name": "GEVO"
+    },
+    {
+      "ticker": "HYLN",
+      "name": "HYLN"
+    },
+    {
+      "ticker": "IDEX",
+      "name": "IDEX"
+    },
+    {
+      "ticker": "NKLA",
+      "name": "NKLA"
+    },
+    {
+      "ticker": "GOEV",
+      "name": "GOEV"
+    },
+    {
+      "ticker": "GOOD",
+      "name": "GOOD"
+    },
+    {
+      "ticker": "LAND",
+      "name": "LAND"
+    },
+    {
+      "ticker": "PINE",
+      "name": "PINE"
+    },
+    {
+      "ticker": "PSTL",
+      "name": "PSTL"
+    },
+    {
+      "ticker": "UNIT",
+      "name": "UNIT"
+    },
+    {
+      "ticker": "VICI",
+      "name": "VICI"
+    },
+    {
+      "ticker": "GLPI",
+      "name": "GLPI"
+    },
+    {
+      "ticker": "APLE",
+      "name": "APLE"
+    },
+    {
+      "ticker": "GATO",
+      "name": "GATO"
+    },
+    {
+      "ticker": "EXK",
+      "name": "EXK"
+    },
+    {
+      "ticker": "CDE",
+      "name": "CDE"
+    },
+    {
+      "ticker": "HL",
+      "name": "HL"
+    },
+    {
+      "ticker": "PAAS",
+      "name": "PAAS"
+    },
+    {
+      "ticker": "SSRM",
+      "name": "SSRM"
+    },
+    {
+      "ticker": "VZIO",
+      "name": "VZIO"
+    },
+    {
+      "ticker": "USAS",
+      "name": "USAS"
+    },
+    {
+      "ticker": "MARA",
+      "name": "MARA"
+    },
+    {
+      "ticker": "RIOT",
+      "name": "RIOT"
+    },
+    {
+      "ticker": "HUT",
+      "name": "HUT"
+    },
+    {
+      "ticker": "BTBT",
+      "name": "BTBT"
+    },
+    {
+      "ticker": "CIFR",
+      "name": "CIFR"
+    },
+    {
+      "ticker": "CLSK",
+      "name": "CLSK"
+    },
+    {
+      "ticker": "WULF",
+      "name": "WULF"
+    },
+    {
+      "ticker": "IREN",
+      "name": "IREN"
+    },
+    {
+      "ticker": "CORZ",
+      "name": "CORZ"
+    },
+    {
+      "ticker": "BTDR",
+      "name": "BTDR"
+    },
+    {
+      "ticker": "HIVE",
+      "name": "HIVE"
+    },
+    {
+      "ticker": "BITF",
+      "name": "BITF"
+    },
+    {
+      "ticker": "AITX",
+      "name": "AITX"
+    },
+    {
+      "ticker": "SYNTX",
+      "name": "SYNTX"
+    },
+    {
+      "ticker": "GFAI",
+      "name": "GFAI"
+    },
+    {
+      "ticker": "INPX",
+      "name": "INPX"
+    },
+    {
+      "ticker": "IDAI",
+      "name": "IDAI"
+    },
+    {
+      "ticker": "RNAZ",
+      "name": "RNAZ"
+    },
+    {
+      "ticker": "KALI",
+      "name": "KALI"
+    },
+    {
+      "ticker": "LUMO",
+      "name": "LUMO"
+    },
+    {
+      "ticker": "PIAI",
+      "name": "PIAI"
+    },
+    {
+      "ticker": "SPCE",
+      "name": "SPCE"
+    },
+    {
+      "ticker": "ASTR",
+      "name": "ASTR"
+    },
+    {
+      "ticker": "VACQ",
+      "name": "VACQ"
+    },
+    {
+      "ticker": "MNTS",
+      "name": "MNTS"
+    },
+    {
+      "ticker": "SATL",
+      "name": "SATL"
+    },
+    {
+      "ticker": "IRDM",
+      "name": "IRDM"
+    },
+    {
+      "ticker": "GSAT",
+      "name": "GSAT"
+    },
+    {
+      "ticker": "IEC",
+      "name": "IEC"
+    },
+    {
+      "ticker": "MAXN",
+      "name": "MAXN"
+    },
+    {
+      "ticker": "ARQQ",
+      "name": "ARQQ"
+    },
+    {
+      "ticker": "NVCR",
+      "name": "NVCR"
+    },
+    {
+      "ticker": "TNDM",
+      "name": "TNDM"
+    },
+    {
+      "ticker": "INSP",
+      "name": "INSP"
+    },
+    {
+      "ticker": "NVRO",
+      "name": "NVRO"
+    },
+    {
+      "ticker": "SWAV",
+      "name": "SWAV"
+    },
+    {
+      "ticker": "IRTC",
+      "name": "IRTC"
+    },
+    {
+      "ticker": "GHVI",
+      "name": "GHVI"
+    },
+    {
+      "ticker": "ONEM",
+      "name": "ONEM"
+    },
+    {
+      "ticker": "DOCS",
+      "name": "DOCS"
+    },
+    {
+      "ticker": "FROG",
+      "name": "FROG"
+    },
+    {
+      "ticker": "LPSN",
+      "name": "LPSN"
+    },
+    {
+      "ticker": "ASAN",
+      "name": "ASAN"
+    },
+    {
+      "ticker": "MNDY",
+      "name": "MNDY"
+    },
+    {
+      "ticker": "APP",
+      "name": "APP"
+    },
+    {
+      "ticker": "TOST",
+      "name": "TOST"
+    },
+    {
+      "ticker": "PAYC",
+      "name": "PAYC"
+    },
+    {
+      "ticker": "PCTY",
+      "name": "PCTY"
+    },
+    {
+      "ticker": "HUBS",
+      "name": "HUBS"
+    },
+    {
+      "ticker": "FRSH",
+      "name": "FRSH"
+    },
+    {
+      "ticker": "GONG",
+      "name": "GONG"
+    },
+    {
+      "ticker": "PAYO",
+      "name": "PAYO"
+    },
+    {
+      "ticker": "SEAT",
+      "name": "SEAT"
+    },
+    {
+      "ticker": "GETY",
+      "name": "GETY"
+    },
+    {
+      "ticker": "LOTZ",
+      "name": "LOTZ"
+    },
+    {
+      "ticker": "OPEN",
+      "name": "OPEN"
+    },
+    {
+      "ticker": "OFLD",
+      "name": "OFLD"
+    },
+    {
+      "ticker": "PRPB",
+      "name": "PRPB"
+    },
+    {
+      "ticker": "DKNG",
+      "name": "DKNG"
+    },
+    {
+      "ticker": "PENN",
+      "name": "PENN"
+    },
+    {
+      "ticker": "GENI",
+      "name": "GENI"
+    },
+    {
+      "ticker": "WOLF",
+      "name": "WOLF"
+    },
+    {
+      "ticker": "SITM",
+      "name": "SITM"
+    },
+    {
+      "ticker": "FORM",
+      "name": "FORM"
+    },
+    {
+      "ticker": "ACMR",
+      "name": "ACMR"
+    },
+    {
+      "ticker": "MKSI",
+      "name": "MKSI"
+    },
+    {
+      "ticker": "ICHR",
+      "name": "ICHR"
+    },
+    {
+      "ticker": "UCTT",
+      "name": "UCTT"
+    },
+    {
+      "ticker": "AMKR",
+      "name": "AMKR"
+    },
+    {
+      "ticker": "DIOD",
+      "name": "DIOD"
+    },
+    {
+      "ticker": "CELH",
+      "name": "CELH"
+    },
+    {
+      "ticker": "VITL",
+      "name": "VITL"
+    },
+    {
+      "ticker": "NOMD",
+      "name": "NOMD"
+    },
+    {
+      "ticker": "WEBR",
+      "name": "WEBR"
+    },
+    {
+      "ticker": "XPEV",
+      "name": "XPEV"
+    },
+    {
+      "ticker": "LI",
+      "name": "LI"
+    },
+    {
+      "ticker": "NIO",
+      "name": "NIO"
+    },
+    {
+      "ticker": "RIVN",
+      "name": "RIVN"
+    },
+    {
+      "ticker": "LCID",
+      "name": "LCID"
+    },
+    {
+      "ticker": "WKHS",
+      "name": "WKHS"
+    },
+    {
+      "ticker": "RIDE",
+      "name": "RIDE"
+    },
+    {
+      "ticker": "SOLO",
+      "name": "SOLO"
+    },
+    {
+      "ticker": "AYRO",
+      "name": "AYRO"
+    },
+    {
+      "ticker": "EVGO",
+      "name": "EVGO"
+    },
+    {
+      "ticker": "VLTA",
+      "name": "VLTA"
+    },
+    {
+      "ticker": "PTRA",
+      "name": "PTRA"
+    },
+    {
+      "ticker": "DRVN",
+      "name": "DRVN"
+    },
+    {
+      "ticker": "ACVA",
+      "name": "ACVA"
+    },
+    {
+      "ticker": "PSFE",
+      "name": "PSFE"
     }
   ]
 }
