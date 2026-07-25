@@ -7,8 +7,8 @@ from notifications.telegram import send_message
 logger = logging.getLogger(__name__)
 
 WATCHLIST_PATH = "config/watchlist.json"
-MIN_SCORE = 75.0
-TEMP_TTL_HOURS = 48
+MIN_SCORE = 60.0
+TEMP_TTL_HOURS = 72
 
 T212_TICKERS_PATH = "config/t212_tickers.json"
 
@@ -36,8 +36,9 @@ def get_todays_top_scorers() -> list[dict]:
             FROM edge_scanner_results
             WHERE scanned_at >= ?
               AND score >= ?
-              AND price_change_pct > 0
-            ORDER BY score DESC
+              AND price_change_pct >= 5.0
+              AND (rsi IS NULL OR rsi < 65)
+            ORDER BY score DESC, price_change_pct DESC
         """, (today, MIN_SCORE)).fetchall()
     return [{"ticker": r[0], "score": r[1], "price_change_pct": r[2], "rsi": r[3]} for r in rows]
 
