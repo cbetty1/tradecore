@@ -18,5 +18,6 @@
   "edge_stop_loss_pct": 8.0,
   "edge_max_position_pct": 12.0,
   "max_hold_days_tc": 30,
-  "max_hold_days_edge": 14
+  "max_hold_days_edge": 14,
+  "min_hold_days_momentum": 3
 }
