@@ -295,16 +295,6 @@
       "currency": "USD"
     },
     {
-      "ticker": "APVO",
-      "name": "APVO",
-      "source": "EdgeScanner"
-    },
-    {
-      "ticker": "CRMT",
-      "name": "CRMT",
-      "source": "EdgeScanner"
-    },
-    {
       "ticker": "CNMD",
       "name": "CNMD",
       "source": "EdgeScanner"
