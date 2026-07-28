@@ -76,7 +76,9 @@ def check_exit_conditions(current_price: float,
                            stop_loss_pct: float = 5.0,
                            take_profit_pct: float = 15.0,
                            highest_price: float = None,
-                           edge_tightening_trail: bool = False) -> dict:
+                           edge_tightening_trail: bool = False,
+                           min_hold_days: int = 0,
+                           entry_date: str = None) -> dict:
     """
     Check whether a position should be exited.
 
@@ -89,6 +91,15 @@ def check_exit_conditions(current_price: float,
         - Fixed trailing stop at stop_loss_pct
     """
     pnl_pct = ((current_price - entry_price) / entry_price) * 100
+    if min_hold_days > 0 and entry_date:
+        from datetime import datetime, date
+        try:
+            entry = datetime.strptime(entry_date, "%Y-%m-%d").date()
+            days_held = (date.today() - entry).days
+            if days_held < min_hold_days:
+                return {"should_exit": False, "reason": f"MIN_HOLD ({min_hold_days}d) — held {days_held}d", "pnl_pct": round(pnl_pct, 2)}
+        except Exception:
+            pass
 
     # EdgeScanner: tightening trail, no hard TP
     if edge_tightening_trail and highest_price is not None:

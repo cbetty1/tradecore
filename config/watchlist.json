@@ -301,11 +301,6 @@
       "currency": "USD"
     },
     {
-      "ticker": "AEYE",
-      "name": "AEYE",
-      "source": "EdgeScanner"
-    },
-    {
       "ticker": "APVO",
       "name": "APVO",
       "source": "EdgeScanner"
