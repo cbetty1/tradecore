@@ -283,12 +283,6 @@
       "currency": "USD"
     },
     {
-      "ticker": "RTX",
-      "name": "RTX Corporation",
-      "exchange": "NYSE",
-      "currency": "USD"
-    },
-    {
       "ticker": "NOW",
       "name": "ServiceNow",
       "exchange": "NYSE",
