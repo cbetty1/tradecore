@@ -21,7 +21,7 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "cache")
 
 # ── Trading Parameters ────────────────────────────────────────────────────────
 TRADING_CURRENCY = "GBP"
-CASH_FLOOR = 10.0             # Minimum trade size in GBP
+CASH_FLOOR = 75.0             # Minimum trade size in GBP
 MAX_POSITION_SIZE = 0.20      # Max 20% of portfolio in one position
 DEFAULT_CONFIDENCE_THRESHOLD = 65.0  # Minimum confidence % to act on signal
 
