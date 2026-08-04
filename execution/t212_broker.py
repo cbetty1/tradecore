@@ -31,10 +31,10 @@ TICKER_MAP_FILE = os.path.join(os.path.dirname(__file__), "..", "config", "t212_
 NON_FRACTIONAL_TICKERS = {"VUKEl_EQ", "VUSAl_EQ", "VWCEd_EQ", "VUKEd_EQ", "VUSAa_EQ", "AZNl_EQ", "SHELl_EQ", "HSBAl_EQ", "CPIX_US_EQ", "CNMD_US_EQ", "CRDL_CA_EQ"}
 
 # Tickers that only support 2 decimal place precision on T212 (use t212_ticker format)
-MAX_2DP_TICKERS = {"FB_US_EQ", "GS_US_EQ", "HPQ_US_EQ", "BLK_US_EQ"}
+MAX_2DP_TICKERS = {"FB_US_EQ", "GS_US_EQ", "HPQ_US_EQ", "BLK_US_EQ", "NKE_US_EQ"}
 
 # Tickers that only support 4 decimal place precision on T212 (use t212_ticker format)
-MAX_4DP_TICKERS = {"NVDA_US_EQ", "CRM_US_EQ", "TMO_US_EQ", "AMGN_US_EQ", "EOG_US_EQ", "UNH_US_EQ", "HON_US_EQ", "DE_US_EQ", "MSFT_US_EQ", "GOOGL_US_EQ", "XOM_US_EQ", "DELL_US_EQ"}
+MAX_4DP_TICKERS = {"NVDA_US_EQ", "CRM_US_EQ", "TMO_US_EQ", "AMGN_US_EQ", "EOG_US_EQ", "UNH_US_EQ", "HON_US_EQ", "DE_US_EQ", "MSFT_US_EQ", "GOOGL_US_EQ", "XOM_US_EQ", "DELL_US_EQ", "PLTR_US_EQ"}
 
 
 def _load_ticker_map() -> dict:

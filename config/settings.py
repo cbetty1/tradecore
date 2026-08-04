@@ -23,7 +23,7 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "cache")
 TRADING_CURRENCY = "GBP"
 CASH_FLOOR = 75.0             # Minimum trade size in GBP
 MAX_POSITION_SIZE = 0.20      # Max 20% of portfolio in one position
-DEFAULT_CONFIDENCE_THRESHOLD = 65.0  # Minimum confidence % to act on signal
+DEFAULT_CONFIDENCE_THRESHOLD = 85.0  # Minimum confidence % to act on signal
 
 # ── Market Schedule (London time) ────────────────────────────────────────────
 MARKET_OPEN = "08:00"
@@ -38,7 +38,7 @@ LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 
 CORRELATION_LIMIT = 0.85
 
-CASH_DEPLOYMENT_THRESHOLD_PCT = 40.0
-CASH_DEPLOYMENT_MIN_CONFIDENCE = 80.0
+CASH_DEPLOYMENT_THRESHOLD_PCT = 70.0
+CASH_DEPLOYMENT_MIN_CONFIDENCE = 85.0
 
 MAX_POSITION_SIZE = 0.20      # Max 20% of portfolio in one position
