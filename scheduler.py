@@ -693,8 +693,15 @@ def start():
         job_late_us_scan,
         CronTrigger(day_of_week="mon-fri", hour=20, minute=30),
         id="late_us_scan",
-        name="Late US Scan"
+        name="Late US Scan")
+
+    scheduler.add_job(
+        job_late_us_scan,
+        CronTrigger(day_of_week="mon-fri", hour=18, minute=0),
+        id="evening_scan",
+        name="Evening US Scan"
     )
+    
 
     # ── Paper Scanner Jobs ──────────────────────────────────────────────────
 

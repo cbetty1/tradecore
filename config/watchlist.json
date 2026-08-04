@@ -298,18 +298,6 @@
       "ticker": "CNMD",
       "name": "CNMD",
       "source": "EdgeScanner"
-    },
-    {
-      "ticker": "CPIX",
-      "name": "CPIX",
-      "source": "EdgeScanner"
-    },
-    {
-      "ticker": "CRDL",
-      "name": "Cardiol Therapeutics",
-      "exchange": "TSX",
-      "currency": "CAD",
-      "source": "EdgeScanner"
     }
   ]
 }
