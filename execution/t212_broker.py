@@ -17,6 +17,7 @@ import json
 import os
 import base64
 import requests
+import re
 from typing import Optional, Dict, List
 
 from execution.broker_base import BrokerBase
@@ -47,6 +48,13 @@ def _load_ticker_map() -> dict:
         logger.error(f"Failed to load ticker map: {e}")
         return {}
 
+def _extract_precision_from_error(error_detail: str) -> Optional[int]:
+    """Pull the required decimal precision out of a T212 error like
+    'invalid quantity precision 5' — returns 5, or None if not found."""
+    match = re.search(r"invalid quantity precision (\d+)", str(error_detail))
+    if match:
+        return int(match.group(1))
+    return None
 
 def yf_to_t212(yf_ticker: str) -> Optional[str]:
     """Convert a yfinance ticker to T212 format."""
@@ -210,8 +218,19 @@ class T212Broker(BrokerBase):
 
         if result and "_error" in result:
             error_detail = result.get("_error", "Unknown error")
-            logger.error(f"BUY ORDER REJECTED by T212: {ticker} — {error_detail}")
-            return {"error": str(error_detail)}
+            precision = _extract_precision_from_error(error_detail)
+            if precision is not None:
+                fixed_qty = round(quantity, precision)
+                logger.warning(f"Precision rejected for {ticker} — retrying at {precision}dp: {fixed_qty}")
+                order_data["quantity"] = fixed_qty
+                result = self._request("POST", "orders/market", data=order_data)
+                if result and "_error" in result:
+                    error_detail = result.get("_error", "Unknown error")
+                    logger.error(f"BUY ORDER REJECTED (retry failed) for {ticker} — {error_detail}")
+                    return {"error": str(error_detail)}
+            else:
+                logger.error(f"BUY ORDER REJECTED by T212: {ticker} — {error_detail}")
+                return {"error": str(error_detail)}
 
         if result:
             logger.info(f"BUY ORDER PLACED: {ticker} | "
