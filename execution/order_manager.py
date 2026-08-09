@@ -516,6 +516,8 @@ def run_scan(watchlist: list) -> list:
                 continue
             else:
                 logger.info(f"LIVE BUY CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
+                from monitoring.health_monitor import reconcile_state_from_t212
+                reconcile_state_from_t212()
                 # ── FIX: Mark slot as filled IMMEDIATELY to prevent duplicate buys ──
                 state["positions"][ticker] = {
                     "shares": size["shares"],
