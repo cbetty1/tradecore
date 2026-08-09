@@ -53,15 +53,15 @@ def get_open_trades(paper=1):
         return conn.execute(sql, (paper,)).fetchall()
 
 
-def close_trade(trade_id, pnl):
-    """Mark a trade as closed with its final P&L."""
+def close_trade(trade_id, pnl, exit_reason=None):
+    """Mark a trade as closed with its final P&L and exit reason."""
     sql = """
-        UPDATE trades SET status = 'CLOSED', closed_at = datetime('now'), pnl = ?
+        UPDATE trades SET status = 'CLOSED', closed_at = datetime('now'), pnl = ?, notes = ?
         WHERE id = ?
     """
     try:
         with get_connection() as conn:
-            conn.execute(sql, (pnl, trade_id))
+            conn.execute(sql, (pnl, exit_reason, trade_id))
     except Exception as e:
         logger.error(f"Failed to close trade: {e}")
         raise

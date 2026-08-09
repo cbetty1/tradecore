@@ -290,7 +290,7 @@ def run_scan(watchlist: list) -> list:
                     logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
                     trade_id = pos.get("trade_id")
                     if trade_id:
-                        close_trade(trade_id, pnl)
+                        close_trade(trade_id, pnl, exit_check["reason"])
                     else:
                         logger.warning(f"No trade_id for {ticker} — skipping DB close")
                     from monitoring.health_monitor import reconcile_state_from_t212
@@ -315,7 +315,7 @@ def run_scan(watchlist: list) -> list:
 
             trade_id = pos.get("trade_id")
             if trade_id:
-                close_trade(trade_id, pnl)
+                close_trade(trade_id, pnl, exit_check["reason"])
             else:
                 logger.warning(f"No trade_id for {ticker} — skipping DB close, position removed from state")
 
