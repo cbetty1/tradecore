@@ -289,8 +289,19 @@ class T212Broker(BrokerBase):
 
         if result and "_error" in result:
             error_detail = result.get("_error", "Unknown error")
-            logger.error(f"SELL ORDER REJECTED by T212: {ticker} — {error_detail}")
-            return {"error": str(error_detail)}
+            precision = _extract_precision_from_error(error_detail)
+            if precision is not None:
+                fixed_shares = round(shares, precision)
+                logger.warning(f"Precision rejected for {ticker} — retrying at {precision}dp: {fixed_shares}")
+                order_data["quantity"] = -fixed_shares
+                result = self._request("POST", "orders/market", data=order_data)
+                if result and "_error" in result:
+                    error_detail = result.get("_error", "Unknown error")
+                    logger.error(f"SELL ORDER REJECTED (retry failed) for {ticker} — {error_detail}")
+                    return {"error": str(error_detail)}
+            else:
+                logger.error(f"SELL ORDER REJECTED by T212: {ticker} — {error_detail}")
+                return {"error": str(error_detail)}
 
         if result:
             logger.info(f"SELL ORDER PLACED: {ticker} | "
