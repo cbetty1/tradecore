@@ -445,7 +445,7 @@ def run_scan(watchlist: list) -> list:
         if not BREAKOUT_PAPER_ONLY and raw_breakout.confidence > raw_signal.confidence:
             raw_signal = raw_breakout
 
-        final_signal = score_signal(raw_signal, df)
+        final_signal = score_signal(raw_signal, df, paper=paper)
         logger.info(f"{ticker} | {final_signal.direction} | Conf={final_signal.confidence:.1f}%")
 
         if not final_signal.is_actionable(DEFAULT_CONFIDENCE_THRESHOLD):
