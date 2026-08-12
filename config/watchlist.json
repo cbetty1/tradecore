@@ -295,8 +295,48 @@
       "currency": "USD"
     },
     {
-      "ticker": "CNMD",
-      "name": "CNMD",
+      "ticker": "AGMH",
+      "name": "AGMH",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "ATXG",
+      "name": "ATXG",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "BAND",
+      "name": "BAND",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "BLNK",
+      "name": "BLNK",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "DIOD",
+      "name": "DIOD",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "LESL",
+      "name": "LESL",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "LUNR",
+      "name": "LUNR",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "ONTO",
+      "name": "ONTO",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "WOLF",
+      "name": "WOLF",
       "source": "EdgeScanner"
     }
   ]

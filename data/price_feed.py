@@ -7,6 +7,34 @@ from config.settings import CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
+_fx_cache = {"rate": None, "date": None}
+
+def _get_usd_to_gbp_rate() -> float:
+    """Fetch and cache USD->GBP rate, refreshed once per day."""
+    today = datetime.now().date()
+    if _fx_cache["rate"] is not None and _fx_cache["date"] == today:
+        return _fx_cache["rate"]
+    try:
+        df = yf.download("GBPUSD=X", period="5d", interval="1d", progress=False, auto_adjust=True)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        gbpusd = float(df["Close"].iloc[-1])
+        rate = 1 / gbpusd
+        _fx_cache["rate"] = rate
+        _fx_cache["date"] = today
+        logger.info(f"USD->GBP rate refreshed: {rate:.4f}")
+        return rate
+    except Exception as e:
+        logger.error(f"Failed to fetch FX rate, defaulting to 0.79: {e}")
+        return 0.79
+
+def _to_gbp(price: float, ticker: str) -> float:
+    """Convert a raw yfinance price to GBP based on ticker suffix."""
+    if ticker.endswith(".L"):
+        return price / 100  # GBX pence -> GBP
+    return price * _get_usd_to_gbp_rate()  # USD -> GBP
+
+
 # Ensure cache directory exists
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -104,7 +132,8 @@ def get_latest_price(ticker: str) -> float | None:
             return None
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-        return float(df["Close"].iloc[-1])
+        raw_price = float(df["Close"].iloc[-1])
+        return _to_gbp(raw_price, ticker)
     except Exception as e:
         logger.error(f"Failed to get latest price for {ticker}: {e}")
         return None
