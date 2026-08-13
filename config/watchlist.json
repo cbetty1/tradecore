@@ -338,6 +338,87 @@
       "ticker": "WOLF",
       "name": "WOLF",
       "source": "EdgeScanner"
+    },
+    {
+      "ticker": "FLUX",
+      "name": "FLUX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011450"
+    },
+    {
+      "ticker": "BIOX",
+      "name": "BIOX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011673"
+    },
+    {
+      "ticker": "WEN",
+      "name": "WEN",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011753"
+    },
+    {
+      "ticker": "CAVA",
+      "name": "CAVA",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011836"
+    },
+    {
+      "ticker": "ACVA",
+      "name": "ACVA",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011888"
+    },
+    {
+      "ticker": "ARCT",
+      "name": "ARCT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.011951"
+    },
+    {
+      "ticker": "CDXS",
+      "name": "CDXS",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.012054"
+    },
+    {
+      "ticker": "STEP",
+      "name": "STEP",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.012139"
+    },
+    {
+      "ticker": "IREN",
+      "name": "IREN",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-13T07:30:00.012960"
     }
   ]
 }
