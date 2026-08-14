@@ -419,6 +419,69 @@
       "source": "EdgeScanner",
       "temp": true,
       "added_at": "2026-08-13T07:30:00.012960"
+    },
+    {
+      "ticker": "BYSI",
+      "name": "BYSI",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.015355"
+    },
+    {
+      "ticker": "CRMD",
+      "name": "CRMD",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.015916"
+    },
+    {
+      "ticker": "ATNM",
+      "name": "ATNM",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.016584"
+    },
+    {
+      "ticker": "BL",
+      "name": "BL",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.016742"
+    },
+    {
+      "ticker": "COLL",
+      "name": "COLL",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.016783"
+    },
+    {
+      "ticker": "HUBS",
+      "name": "HUBS",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.016826"
+    },
+    {
+      "ticker": "NOMD",
+      "name": "NOMD",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-14T07:30:00.016892"
     }
   ]
 }

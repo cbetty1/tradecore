@@ -580,13 +580,23 @@ def run_scan(watchlist: list) -> list:
     portfolio_value = get_portfolio_value(state)
     save_portfolio_state(state)
 
-    insert_snapshot(
-        snapshot_date=str(datetime.now().date()),
-        total_value=portfolio_value,
-        cash_balance=cash,
-        invested_value=portfolio_value - cash,
-        paper=0
-    )
+    if portfolio_value < cash:
+        logger.warning(f"Snapshot skipped — portfolio_value £{portfolio_value:.2f} < cash £{cash:.2f}, likely stale/incomplete state")
+    else:
+        try:
+            from execution.t212_broker import T212Broker
+            _broker = T212Broker()
+            _t212_balance = _broker.get_account_balance()
+            portfolio_value = round(float(_t212_balance.get("total", portfolio_value)), 2)
+        except Exception as e:
+            logger.warning(f"T212 verification for snapshot failed, using local calc: {e}")
+        insert_snapshot(
+            snapshot_date=str(datetime.now().date()),
+            total_value=portfolio_value,
+            cash_balance=cash,
+            invested_value=portfolio_value - cash,
+            paper=0
+        )
 
     logger.info(f"Scan complete [{mode_label}] | {len(actions)} actions | Portfolio=£{portfolio_value:.2f}")
     return actions
