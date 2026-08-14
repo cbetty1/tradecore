@@ -264,6 +264,9 @@ def reconcile_state_from_t212():
             qty = float(pos.get("quantityAvailableForTrading", 0))
             if qty > 0 and yf_ticker not in new_positions:
                 avg_price = float(pos.get("averagePrice", 0))
+                if avg_price <= 0:
+                    logger.warning(f"Skipping add for {yf_ticker} — T212 averagePrice is 0 (order likely not fully settled yet)")
+                    continue
                 new_positions[yf_ticker] = {
                     "shares": qty,
                     "entry_price": avg_price,
@@ -272,6 +275,15 @@ def reconcile_state_from_t212():
                     "invested": round(qty * avg_price, 2)
                 }
                 logger.info(f"Added missing position from T212: {yf_ticker} x{qty} @ £{avg_price:.2f}")
+
+            # Guard against overwriting a known good entry_price with a zero from T212
+            if qty > 0 and yf_ticker in new_positions and new_positions[yf_ticker].get("entry_price", 0) == 0:
+                if avg_price := float(pos.get("averagePrice", 0)):
+                    new_positions[yf_ticker]["entry_price"] = avg_price
+                    new_positions[yf_ticker]["highest_price"] = avg_price
+                    logger.info(f"Backfilled zero entry_price for {yf_ticker} from T212 averagePrice: £{avg_price:.2f}")
+                else:
+                    logger.warning(f"{yf_ticker} has entry_price=0 and T212 averagePrice is also 0 — leaving as-is, needs manual check")
 
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
