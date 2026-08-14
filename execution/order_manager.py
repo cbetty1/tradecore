@@ -135,8 +135,10 @@ def load_portfolio_state() -> dict:
 def save_portfolio_state(state: dict):
     try:
         state["last_updated"] = str(datetime.now())
-        with open(STATE_FILE, "w") as f:
+        tmp_file = STATE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
             json.dump(state, f, indent=2)
+        os.replace(tmp_file, STATE_FILE)  # atomic on POSIX — no partial-write risk
     except Exception as e:
         logger.error(f"Failed to save portfolio state: {e}")
 
