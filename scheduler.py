@@ -74,6 +74,17 @@ def job_morning_snapshot():
         if pv <= state["cash"]:
             logger.warning(f"Morning snapshot skipped — prices unavailable (portfolio=£{pv:.2f})")
             return
+        try:
+            from execution.t212_broker import T212Broker
+            broker = T212Broker()
+            t212_balance = broker.get_account_balance()
+            verified_pv = round(float(t212_balance.get("total", pv)), 2)
+            if verified_pv < state["cash"]:
+                logger.warning(f"Morning snapshot skipped — T212 verified value £{verified_pv:.2f} looks invalid")
+                return
+            pv = verified_pv
+        except Exception as e:
+            logger.warning(f"T212 verification for morning snapshot failed, using local calc: {e}")
         insert_snapshot(
             snapshot_date=str(datetime.now().date()),
             total_value=pv,
@@ -84,7 +95,6 @@ def job_morning_snapshot():
         logger.info(f"Morning snapshot written: £{pv:.2f}")
     except Exception as e:
         logger.error(f"Morning snapshot failed: {e}")
-
 
 def job_monitor_positions():
     """Every 15 mins — monitor live positions and scan for new entries."""
