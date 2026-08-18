@@ -263,7 +263,7 @@ def reconcile_state_from_t212():
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
             qty = float(pos.get("quantityAvailableForTrading", 0))
             if qty > 0 and yf_ticker not in new_positions:
-                avg_price = float(pos.get("averagePrice", 0))
+                avg_price = float(pos.get("averagePricePaid", 0))
                 if avg_price <= 0:
                     logger.warning(f"Skipping add for {yf_ticker} — T212 averagePrice is 0 (order likely not fully settled yet)")
                     continue
@@ -278,7 +278,7 @@ def reconcile_state_from_t212():
 
             # Guard against overwriting a known good entry_price with a zero from T212
             if qty > 0 and yf_ticker in new_positions and new_positions[yf_ticker].get("entry_price", 0) == 0:
-                if avg_price := float(pos.get("averagePrice", 0)):
+                if avg_price := float(pos.get("averagePricePaid", 0)):
                     new_positions[yf_ticker]["entry_price"] = avg_price
                     new_positions[yf_ticker]["highest_price"] = avg_price
                     logger.info(f"Backfilled zero entry_price for {yf_ticker} from T212 averagePrice: £{avg_price:.2f}")

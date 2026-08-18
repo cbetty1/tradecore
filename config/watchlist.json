@@ -340,22 +340,50 @@
       "source": "EdgeScanner"
     },
     {
-      "ticker": "ATNM",
-      "name": "ATNM",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-08-14T07:30:00.016584"
+      "ticker": "AUTL",
+      "name": "AUTL",
+      "source": "EdgeScanner"
     },
     {
-      "ticker": "HUBS",
-      "name": "HUBS",
+      "ticker": "LPSN",
+      "name": "LPSN",
+      "source": "EdgeScanner"
+    },
+    {
+      "ticker": "ATGN",
+      "name": "ATGN",
       "exchange": "NASDAQ",
       "currency": "USD",
       "source": "EdgeScanner",
       "temp": true,
-      "added_at": "2026-08-14T07:30:00.016826"
+      "added_at": "2026-08-18T07:30:00.006252"
+    },
+    {
+      "ticker": "AKTX",
+      "name": "AKTX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-18T07:30:00.006471"
+    },
+    {
+      "ticker": "AEYE",
+      "name": "AEYE",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-18T07:30:00.006542"
+    },
+    {
+      "ticker": "FLUX",
+      "name": "FLUX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-18T07:30:00.006588"
     }
   ]
 }
