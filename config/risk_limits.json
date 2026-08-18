@@ -11,7 +11,7 @@
   "paper_trading_mode": false,
   "cash_deployment_threshold_pct": 70.0,
   "cash_deployment_min_confidence": 85.0,
-  "starting_capital": 780.0,
+  "starting_capital": 580.0,
   "max_tc_positions": 7,
   "max_edge_positions": 2,
   "edge_take_profit_pct": 40.0,

@@ -262,10 +262,27 @@ def reconcile_state_from_t212():
             t212_ticker = pos.get("instrument", {}).get("ticker", "")
             yf_ticker = reverse_map.get(t212_ticker, t212_ticker)
             qty = float(pos.get("quantityAvailableForTrading", 0))
+            def _get_gbp_entry_price(pos, qty):
+                wallet = pos.get("walletImpact", {}) or {}
+                total_cost = wallet.get("totalCost")
+                if total_cost and qty:
+                    return round(float(total_cost) / qty, 6)
+                raw_avg = float(pos.get("averagePricePaid", 0))
+                if raw_avg <= 0:
+                    return 0.0
+                instrument_ccy = pos.get("instrument", {}).get("currency", "GBP")
+                if instrument_ccy == "GBP":
+                    return raw_avg
+                try:
+                    from data.price_feed import _get_usd_to_gbp_rate
+                    return round(raw_avg * _get_usd_to_gbp_rate(), 6)
+                except Exception:
+                    return raw_avg
+
             if qty > 0 and yf_ticker not in new_positions:
-                avg_price = float(pos.get("averagePricePaid", 0))
+                avg_price = _get_gbp_entry_price(pos, qty)
                 if avg_price <= 0:
-                    logger.warning(f"Skipping add for {yf_ticker} — T212 averagePrice is 0 (order likely not fully settled yet)")
+                    logger.warning(f"Skipping add for {yf_ticker} — could not determine GBP entry price (order likely not fully settled yet)")
                     continue
                 new_positions[yf_ticker] = {
                     "shares": qty,
@@ -278,12 +295,13 @@ def reconcile_state_from_t212():
 
             # Guard against overwriting a known good entry_price with a zero from T212
             if qty > 0 and yf_ticker in new_positions and new_positions[yf_ticker].get("entry_price", 0) == 0:
-                if avg_price := float(pos.get("averagePricePaid", 0)):
+                avg_price = _get_gbp_entry_price(pos, qty)
+                if avg_price > 0:
                     new_positions[yf_ticker]["entry_price"] = avg_price
                     new_positions[yf_ticker]["highest_price"] = avg_price
-                    logger.info(f"Backfilled zero entry_price for {yf_ticker} from T212 averagePrice: £{avg_price:.2f}")
+                    logger.info(f"Backfilled zero entry_price for {yf_ticker} from T212: £{avg_price:.2f}")
                 else:
-                    logger.warning(f"{yf_ticker} has entry_price=0 and T212 averagePrice is also 0 — leaving as-is, needs manual check")
+                    logger.warning(f"{yf_ticker} has entry_price=0 and T212 data also unusable — leaving as-is, needs manual check")
 
         new_cash = round(float(t212_cash_data.get("free", state["cash"])), 2)
         state["positions"] = new_positions
