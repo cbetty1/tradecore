@@ -350,15 +350,6 @@
       "source": "EdgeScanner"
     },
     {
-      "ticker": "ATGN",
-      "name": "ATGN",
-      "exchange": "NASDAQ",
-      "currency": "USD",
-      "source": "EdgeScanner",
-      "temp": true,
-      "added_at": "2026-08-18T07:30:00.006252"
-    },
-    {
       "ticker": "AKTX",
       "name": "AKTX",
       "exchange": "NASDAQ",
@@ -384,6 +375,69 @@
       "source": "EdgeScanner",
       "temp": true,
       "added_at": "2026-08-18T07:30:00.006588"
+    },
+    {
+      "ticker": "BIAF",
+      "name": "BIAF",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.018702"
+    },
+    {
+      "ticker": "BCAB",
+      "name": "BCAB",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019298"
+    },
+    {
+      "ticker": "RNAZ",
+      "name": "RNAZ",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019628"
+    },
+    {
+      "ticker": "CHRS",
+      "name": "CHRS",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019716"
+    },
+    {
+      "ticker": "AURA",
+      "name": "AURA",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019768"
+    },
+    {
+      "ticker": "BLRX",
+      "name": "BLRX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019819"
+    },
+    {
+      "ticker": "CRMD",
+      "name": "CRMD",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-19T07:30:00.019885"
     }
   ]
 }
