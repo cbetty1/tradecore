@@ -438,6 +438,141 @@
       "source": "EdgeScanner",
       "temp": true,
       "added_at": "2026-08-19T07:30:00.019885"
+    },
+    {
+      "ticker": "MRNA",
+      "name": "MRNA",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.009648"
+    },
+    {
+      "ticker": "EDIT",
+      "name": "EDIT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.010037"
+    },
+    {
+      "ticker": "CONX",
+      "name": "CONX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.010135"
+    },
+    {
+      "ticker": "ALEC",
+      "name": "ALEC",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011035"
+    },
+    {
+      "ticker": "ARCT",
+      "name": "ARCT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011151"
+    },
+    {
+      "ticker": "AREB",
+      "name": "AREB",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011249"
+    },
+    {
+      "ticker": "ASTL",
+      "name": "ASTL",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011307"
+    },
+    {
+      "ticker": "BTCS",
+      "name": "BTCS",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011383"
+    },
+    {
+      "ticker": "COIN",
+      "name": "COIN",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011444"
+    },
+    {
+      "ticker": "MSTR",
+      "name": "MSTR",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011498"
+    },
+    {
+      "ticker": "RXRX",
+      "name": "RXRX",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011553"
+    },
+    {
+      "ticker": "DNUT",
+      "name": "DNUT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011656"
+    },
+    {
+      "ticker": "RCKT",
+      "name": "RCKT",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011716"
+    },
+    {
+      "ticker": "BEAM",
+      "name": "BEAM",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011784"
+    },
+    {
+      "ticker": "NTLA",
+      "name": "NTLA",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "source": "EdgeScanner",
+      "temp": true,
+      "added_at": "2026-08-20T07:30:00.011836"
     }
   ]
 }
