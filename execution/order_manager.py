@@ -499,6 +499,9 @@ def run_scan(watchlist: list) -> list:
             logger.info(f"Position rejected: {size['reason']}")
             continue
 
+        if not paper and final_signal.signal_type == "MOMENTUM":
+            logger.info(f"MOMENTUM live-skip: {ticker} — paper-only during evaluation period")
+            paper = True
         if not paper:
             logger.info(f"LIVE BUY: {ticker} | {size['shares']:.6f} shares | £{size['invest_amount']:.2f} | {'EDGE' if is_edge else 'TC'}")
             broker = _get_broker()
