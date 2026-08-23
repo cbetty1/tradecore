@@ -724,7 +724,7 @@ def start():
 
     scheduler.add_job(
         job_paper_scan,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=30),
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=38),
         id="paper_scan_late",
         name="Paper Scanner Late Session (600 stocks)"
     )
@@ -754,7 +754,7 @@ def start():
 
     scheduler.add_job(
         job_weekly_paper_summary,
-        CronTrigger(day_of_week="fri", hour=20, minute=30),
+        CronTrigger(day_of_week="fri", hour=21, minute=20),
         id="weekly_paper_summary",
         name="Weekly Paper Summary"
     )
@@ -777,21 +777,21 @@ def start():
 
     scheduler.add_job(
         job_daily_health_digest,
-        CronTrigger(day_of_week="mon-fri", hour=21, minute=0),
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=10),
         id="daily_health_digest",
         name="Daily Health Digest"
     )
 
     scheduler.add_job(
         job_edge_scan,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=45),
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=46),
         id="edge_scan",
         name="Edge Scanner"
     )
 
     scheduler.add_job(
         job_edge_outcome_tracker,
-        CronTrigger(day_of_week='mon-fri', hour=20, minute=50),
+        CronTrigger(day_of_week='mon-fri', hour=20, minute=54),
         id='edge_outcome_tracker'
    )
 
@@ -822,7 +822,7 @@ def start():
     # Edge scanner jobs
     scheduler.add_job(
         job_edge_promotion_check,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=52),
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=2),
         id="edge_promotion_check",
         name="EdgeScanner Promotion Check"
     )
