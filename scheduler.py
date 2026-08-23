@@ -842,7 +842,7 @@ def start():
     )
     scheduler.add_job(
         job_fast_lane_cleanup,
-        CronTrigger(day_of_week="mon-fri", hour=7, minute=0),
+        CronTrigger(day_of_week="mon-sun", hour=7, minute=0),
         id="fast_lane_cleanup",
         name="Fast Lane Cleanup"
     )
