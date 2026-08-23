@@ -1,4 +1,5 @@
 import logging
+import time
 from database.db import get_connection
 
 logger = logging.getLogger(__name__)
@@ -53,18 +54,23 @@ def get_open_trades(paper=1):
         return conn.execute(sql, (paper,)).fetchall()
 
 
-def close_trade(trade_id, pnl, exit_reason=None):
-    """Mark a trade as closed with its final P&L and exit reason."""
+def close_trade(trade_id, pnl, exit_reason=None, max_retries=3):
+    """Mark a trade as closed with its final P&L and exit reason. Retries on transient DB locks."""
     sql = """
         UPDATE trades SET status = 'CLOSED', closed_at = datetime('now'), pnl = ?, notes = ?
         WHERE id = ?
     """
-    try:
-        with get_connection() as conn:
-            conn.execute(sql, (pnl, exit_reason, trade_id))
-    except Exception as e:
-        logger.error(f"Failed to close trade: {e}")
-        raise
+    for attempt in range(1, max_retries + 1):
+        try:
+            with get_connection() as conn:
+                conn.execute(sql, (pnl, exit_reason, trade_id))
+            return
+        except Exception as e:
+            logger.error(f"Failed to close trade (attempt {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                time.sleep(2)
+            else:
+                raise
 
 
 # ── Portfolio Snapshots ───────────────────────────────────────────────────────
