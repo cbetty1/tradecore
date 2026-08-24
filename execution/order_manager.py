@@ -556,18 +556,21 @@ def run_scan(watchlist: list) -> list:
             paper=1 if paper else 0
         )
 
-        cash -= size["invest_amount"]
-        state["cash"] = cash
-        state["positions"][ticker] = {
-            "shares": size["shares"],
-            "entry_price": current_price,
-            "highest_price": current_price,
-            "trade_id": trade_id,
-            "invested": size["invest_amount"],
-            "source": "EdgeScanner" if is_edge else "TradeCore",
-            "entry_date": str(datetime.now().date())
-        }
-        open_tickers.append(ticker)
+        # FIX: only touch live cash/positions for genuinely live trades.
+        # Paper-forced tickers (e.g. MOMENTUM blocked from live) must not drain live cash.
+        if not paper:
+            cash -= size["invest_amount"]
+            state["cash"] = cash
+            state["positions"][ticker] = {
+                "shares": size["shares"],
+                "entry_price": current_price,
+                "highest_price": current_price,
+                "trade_id": trade_id,
+                "invested": size["invest_amount"],
+                "source": "EdgeScanner" if is_edge else "TradeCore",
+                "entry_date": str(datetime.now().date())
+            }
+            open_tickers.append(ticker)
 
         actions.append({
             "action": "BUY",
@@ -577,7 +580,7 @@ def run_scan(watchlist: list) -> list:
             "invest_amount": size["invest_amount"],
             "confidence": final_signal.confidence
         })
-        logger.info(f"BUY {ticker} [{mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
+        logger.info(f"BUY {ticker} [{'PAPER' if paper else mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
 
     # ── Save State + Snapshot ─────────────────────────────────────────────────
     portfolio_value = get_portfolio_value(state)
