@@ -306,7 +306,8 @@ def run_scan(watchlist: list) -> list:
                         "shares": shares,
                         "sell_value": round(sell_value, 2),
                         "pnl": round(pnl, 2),
-                        "reason": exit_check["reason"]
+                        "reason": exit_check["reason"],
+                        "paper": paper
                     })
                     continue
 
@@ -328,6 +329,7 @@ def run_scan(watchlist: list) -> list:
                 "shares": shares,
                 "sell_value": round(sell_value, 2),
                 "pnl": round(pnl, 2),
+                "paper": paper,
                 "reason": exit_check["reason"]
             })
             logger.info(f"SELL {ticker} [{mode_label}] | {exit_check['reason']} | P&L=£{pnl:.2f} ({exit_check['pnl_pct']:.1f}%)")
@@ -578,7 +580,8 @@ def run_scan(watchlist: list) -> list:
             "price": current_price,
             "shares": size["shares"],
             "invest_amount": size["invest_amount"],
-            "confidence": final_signal.confidence
+            "confidence": final_signal.confidence,
+            "paper": paper
         })
         logger.info(f"BUY {ticker} [{'PAPER' if paper else mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
 

@@ -121,6 +121,8 @@ def job_monitor_positions():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -162,6 +164,8 @@ def job_midday_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -205,6 +209,8 @@ def job_afternoon_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -272,6 +278,8 @@ def job_late_us_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
