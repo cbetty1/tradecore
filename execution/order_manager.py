@@ -357,8 +357,13 @@ def run_scan(watchlist: list) -> list:
 
         if ticker in open_tickers:
                     continue
-        open_db_trades = get_open_trades(paper=0)
-        if any(row["ticker"] == ticker for row in open_db_trades):
+        open_db_trades_live = get_open_trades(paper=0)
+        open_db_trades_paper = get_open_trades(paper=1)
+        ticker_already_open = (
+            any(row["ticker"] == ticker for row in open_db_trades_live)
+            or any(row["ticker"] == ticker for row in open_db_trades_paper)
+        )
+        if ticker_already_open:
                     logger.info(f"Skipping {ticker} — open trade already exists in DB")
                     continue
 
