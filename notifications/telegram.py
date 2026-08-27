@@ -154,7 +154,7 @@ def send_daily_report(portfolio_value: float, cash: float,
             current_price = get_latest_price(ticker)
             if current_price:
                 pnl = (current_price - pos["entry_price"]) * pos["shares"]
-                pnl_pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100
+                pnl_pct = ((current_price - pos["entry_price"]) / pos["entry_price"]) * 100 if pos["entry_price"] else 0.0
                 arrow = "▲" if pnl >= 0 else "▼"
                 pnl_display = f"+£{pnl:.2f}" if pnl >= 0 else f"-£{abs(pnl):.2f}"
                 pnl_pct_display = f"+{pnl_pct:.1f}%" if pnl_pct >= 0 else f"{pnl_pct:.1f}%"

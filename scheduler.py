@@ -74,6 +74,17 @@ def job_morning_snapshot():
         if pv <= state["cash"]:
             logger.warning(f"Morning snapshot skipped — prices unavailable (portfolio=£{pv:.2f})")
             return
+        try:
+            from execution.t212_broker import T212Broker
+            broker = T212Broker()
+            t212_balance = broker.get_account_balance()
+            verified_pv = round(float(t212_balance.get("total", pv)), 2)
+            if verified_pv < state["cash"]:
+                logger.warning(f"Morning snapshot skipped — T212 verified value £{verified_pv:.2f} looks invalid")
+                return
+            pv = verified_pv
+        except Exception as e:
+            logger.warning(f"T212 verification for morning snapshot failed, using local calc: {e}")
         insert_snapshot(
             snapshot_date=str(datetime.now().date()),
             total_value=pv,
@@ -84,7 +95,6 @@ def job_morning_snapshot():
         logger.info(f"Morning snapshot written: £{pv:.2f}")
     except Exception as e:
         logger.error(f"Morning snapshot failed: {e}")
-
 
 def job_monitor_positions():
     """Every 15 mins — monitor live positions and scan for new entries."""
@@ -111,6 +121,8 @@ def job_monitor_positions():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -156,6 +168,8 @@ def job_midday_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -199,6 +213,8 @@ def job_afternoon_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -266,6 +282,8 @@ def job_late_us_scan():
         actions = run_scan(watchlist)
 
         for action in actions:
+            if action.get("paper"):
+                continue  # MOMENTUM-blocked or otherwise paper-forced — no live alert
             if action["action"] == "BUY":
                 send_trade_alert(
                     action="BUY",
@@ -718,7 +736,7 @@ def start():
 
     scheduler.add_job(
         job_paper_scan,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=30),
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=38),
         id="paper_scan_late",
         name="Paper Scanner Late Session (600 stocks)"
     )
@@ -748,7 +766,7 @@ def start():
 
     scheduler.add_job(
         job_weekly_paper_summary,
-        CronTrigger(day_of_week="fri", hour=20, minute=30),
+        CronTrigger(day_of_week="fri", hour=21, minute=20),
         id="weekly_paper_summary",
         name="Weekly Paper Summary"
     )
@@ -771,21 +789,21 @@ def start():
 
     scheduler.add_job(
         job_daily_health_digest,
-        CronTrigger(day_of_week="mon-fri", hour=21, minute=0),
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=10),
         id="daily_health_digest",
         name="Daily Health Digest"
     )
 
     scheduler.add_job(
         job_edge_scan,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=45),
+        CronTrigger(day_of_week="mon-fri", hour=20, minute=46),
         id="edge_scan",
         name="Edge Scanner"
     )
 
     scheduler.add_job(
         job_edge_outcome_tracker,
-        CronTrigger(day_of_week='mon-fri', hour=20, minute=50),
+        CronTrigger(day_of_week='mon-fri', hour=20, minute=54),
         id='edge_outcome_tracker'
    )
 
@@ -816,7 +834,7 @@ def start():
     # Edge scanner jobs
     scheduler.add_job(
         job_edge_promotion_check,
-        CronTrigger(day_of_week="mon-fri", hour=20, minute=52),
+        CronTrigger(day_of_week="mon-fri", hour=21, minute=2),
         id="edge_promotion_check",
         name="EdgeScanner Promotion Check"
     )
@@ -836,7 +854,7 @@ def start():
     )
     scheduler.add_job(
         job_fast_lane_cleanup,
-        CronTrigger(day_of_week="mon-fri", hour=7, minute=0),
+        CronTrigger(day_of_week="mon-sun", hour=7, minute=0),
         id="fast_lane_cleanup",
         name="Fast Lane Cleanup"
     )

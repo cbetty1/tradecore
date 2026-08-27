@@ -169,6 +169,23 @@ class T212Broker(BrokerBase):
 
     # ── Order Placement ─────────────────────────────────────────────────────
 
+
+    def _remove_from_watchlist(self, ticker: str):
+        """Remove a ticker from watchlist.json — used when T212 rejects it as ISA-ineligible."""
+        import json, os
+        path = os.path.join(os.path.dirname(__file__), "..", "config", "watchlist.json")
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            before = len(data["watchlist"])
+            data["watchlist"] = [w for w in data["watchlist"] if w["ticker"] != ticker]
+            after = len(data["watchlist"])
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+            logger.info(f"Removed {ticker} from watchlist.json ({before}->{after} entries)")
+        except Exception as e:
+            logger.error(f"Failed to remove {ticker} from watchlist: {e}")
+
     def place_buy_order(self, ticker: str, quantity: float) -> dict:
         """
         Place a market BUY order on T212.
@@ -228,6 +245,10 @@ class T212Broker(BrokerBase):
                     error_detail = result.get("_error", "Unknown error")
                     logger.error(f"BUY ORDER REJECTED (retry failed) for {ticker} — {error_detail}")
                     return {"error": str(error_detail)}
+            elif "ineligible-instrument" in str(error_detail):
+                logger.error(f"BUY ORDER REJECTED — ISA ineligible: {ticker} — removing from watchlist")
+                self._remove_from_watchlist(ticker)
+                return {"error": str(error_detail)}
             else:
                 logger.error(f"BUY ORDER REJECTED by T212: {ticker} — {error_detail}")
                 return {"error": str(error_detail)}

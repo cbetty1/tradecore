@@ -135,8 +135,10 @@ def load_portfolio_state() -> dict:
 def save_portfolio_state(state: dict):
     try:
         state["last_updated"] = str(datetime.now())
-        with open(STATE_FILE, "w") as f:
+        tmp_file = STATE_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
             json.dump(state, f, indent=2)
+        os.replace(tmp_file, STATE_FILE)  # atomic on POSIX — no partial-write risk
     except Exception as e:
         logger.error(f"Failed to save portfolio state: {e}")
 
@@ -304,7 +306,8 @@ def run_scan(watchlist: list) -> list:
                         "shares": shares,
                         "sell_value": round(sell_value, 2),
                         "pnl": round(pnl, 2),
-                        "reason": exit_check["reason"]
+                        "reason": exit_check["reason"],
+                        "paper": paper
                     })
                     continue
 
@@ -326,6 +329,7 @@ def run_scan(watchlist: list) -> list:
                 "shares": shares,
                 "sell_value": round(sell_value, 2),
                 "pnl": round(pnl, 2),
+                "paper": paper,
                 "reason": exit_check["reason"]
             })
             logger.info(f"SELL {ticker} [{mode_label}] | {exit_check['reason']} | P&L=£{pnl:.2f} ({exit_check['pnl_pct']:.1f}%)")
@@ -353,8 +357,13 @@ def run_scan(watchlist: list) -> list:
 
         if ticker in open_tickers:
                     continue
-        open_db_trades = get_open_trades(paper=0)
-        if any(row["ticker"] == ticker for row in open_db_trades):
+        open_db_trades_live = get_open_trades(paper=0)
+        open_db_trades_paper = get_open_trades(paper=1)
+        ticker_already_open = (
+            any(row["ticker"] == ticker for row in open_db_trades_live)
+            or any(row["ticker"] == ticker for row in open_db_trades_paper)
+        )
+        if ticker_already_open:
                     logger.info(f"Skipping {ticker} — open trade already exists in DB")
                     continue
 
@@ -395,23 +404,34 @@ def run_scan(watchlist: list) -> list:
         if had_recent_earnings(ticker, days=2):
             raw_drift = drift_engine.evaluate(ticker, df)
             if raw_drift.direction == "BUY" and raw_drift.confidence >= EARNINGS_DRIFT_MIN_CONFIDENCE:
-                logger.info(f"📊 PAPER DRIFT: {ticker} | Conf={raw_drift.confidence:.1f}% | {raw_drift.notes}")
-                insert_signal(
-                    ticker=ticker,
-                    signal_type="EARNINGS_DRIFT_PAPER",
-                    direction=raw_drift.direction,
-                    confidence=raw_drift.confidence,
-                    price=current_price,
-                    regime=None,
-                    notes=f"[PAPER] {raw_drift.notes}"
-                )
-                from notifications.telegram import send_earnings_drift_alert
-                send_earnings_drift_alert(
-                    ticker=ticker,
-                    price=current_price,
-                    confidence=raw_drift.confidence,
-                    notes=raw_drift.notes
-                )
+                from datetime import date as _date2
+                from database.db import get_connection as _get_connection2
+                today_str2 = str(_date2.today())
+                with _get_connection2() as _conn2:
+                    already_alerted_drift_today = _conn2.execute(
+                        """SELECT COUNT(*) as count FROM signals
+                           WHERE ticker = ? AND signal_type = 'EARNINGS_DRIFT_PAPER'
+                           AND date(created_at) = ?""",
+                        (ticker, today_str2)
+                    ).fetchone()["count"] > 0
+                if not already_alerted_drift_today:
+                    logger.info(f"📊 PAPER DRIFT: {ticker} | Conf={raw_drift.confidence:.1f}% | {raw_drift.notes}")
+                    insert_signal(
+                        ticker=ticker,
+                        signal_type="EARNINGS_DRIFT_PAPER",
+                        direction=raw_drift.direction,
+                        confidence=raw_drift.confidence,
+                        price=current_price,
+                        regime=None,
+                        notes=f"[PAPER] {raw_drift.notes}"
+                    )
+                    from notifications.telegram import send_earnings_drift_alert
+                    send_earnings_drift_alert(
+                        ticker=ticker,
+                        price=current_price,
+                        confidence=raw_drift.confidence,
+                        notes=raw_drift.notes
+                    )
 
         # ── Standard signal pipeline ──────────────────────────────────────
         raw_momentum = signal_engine.evaluate(ticker, df)
@@ -419,23 +439,36 @@ def run_scan(watchlist: list) -> list:
         raw_breakout = breakout_engine.evaluate(ticker, df)
 
         if BREAKOUT_PAPER_ONLY and raw_breakout.direction == "BUY" and raw_breakout.confidence >= DEFAULT_CONFIDENCE_THRESHOLD:
-            logger.info(f"📋 PAPER BREAKOUT: {ticker} | {raw_breakout.direction} | Conf={raw_breakout.confidence:.1f}%")
-            insert_signal(
-                ticker=ticker,
-                signal_type="BREAKOUT_PAPER",
-                direction=raw_breakout.direction,
-                confidence=raw_breakout.confidence,
-                price=current_price,
-                regime=None,
-                notes=f"[PAPER] {raw_breakout.notes}"
-            )
-            from notifications.telegram import send_breakout_paper_alert
-            send_breakout_paper_alert(
-                ticker=ticker,
-                price=current_price,
-                confidence=raw_breakout.confidence,
-                notes=raw_breakout.notes
-            )
+            # FIX: only alert once per ticker per day — this scan runs every 15 min
+            # and a breakout condition can hold for hours, spamming duplicate alerts.
+            from datetime import date as _date
+            from database.db import get_connection
+            today_str = str(_date.today())
+            with get_connection() as _conn:
+                already_alerted_today = _conn.execute(
+                    """SELECT COUNT(*) as count FROM signals
+                       WHERE ticker = ? AND signal_type = 'BREAKOUT_PAPER'
+                       AND date(created_at) = ?""",
+                    (ticker, today_str)
+                ).fetchone()["count"] > 0
+            if not already_alerted_today:
+                logger.info(f"📋 PAPER BREAKOUT: {ticker} | {raw_breakout.direction} | Conf={raw_breakout.confidence:.1f}%")
+                insert_signal(
+                    ticker=ticker,
+                    signal_type="BREAKOUT_PAPER",
+                    direction=raw_breakout.direction,
+                    confidence=raw_breakout.confidence,
+                    price=current_price,
+                    regime=None,
+                    notes=f"[PAPER] {raw_breakout.notes}"
+                )
+                from notifications.telegram import send_breakout_paper_alert
+                send_breakout_paper_alert(
+                    ticker=ticker,
+                    price=current_price,
+                    confidence=raw_breakout.confidence,
+                    notes=raw_breakout.notes
+                )
 
         if raw_reversion.confidence > raw_momentum.confidence:
             raw_signal = raw_reversion
@@ -457,7 +490,9 @@ def run_scan(watchlist: list) -> list:
                 record_entry(ticker, current_price, final_signal.confidence, final_signal.notes)
                 continue
 
-        if not final_signal.is_actionable(DEFAULT_CONFIDENCE_THRESHOLD):
+        min_conf_threshold = limits.get("min_confidence_threshold", 65.0)
+        if not final_signal.is_actionable(min_conf_threshold):
+            logger.info(f"{ticker} — confidence {final_signal.confidence:.1f}% below threshold {min_conf_threshold}%, skipping")
             continue
         if final_signal.direction != "BUY":
             continue
@@ -506,6 +541,9 @@ def run_scan(watchlist: list) -> list:
             logger.info(f"Position rejected: {size['reason']}")
             continue
 
+        if not paper and final_signal.signal_type == "MOMENTUM":
+            logger.info(f"MOMENTUM live-skip: {ticker} — paper-only during evaluation period")
+            paper = True
         if not paper:
             logger.info(f"LIVE BUY: {ticker} | {size['shares']:.6f} shares | £{size['invest_amount']:.2f} | {'EDGE' if is_edge else 'TC'}")
             broker = _get_broker()
@@ -560,18 +598,21 @@ def run_scan(watchlist: list) -> list:
             paper=1 if paper else 0
         )
 
-        cash -= size["invest_amount"]
-        state["cash"] = cash
-        state["positions"][ticker] = {
-            "shares": size["shares"],
-            "entry_price": current_price,
-            "highest_price": current_price,
-            "trade_id": trade_id,
-            "invested": size["invest_amount"],
-            "source": "EdgeScanner" if is_edge else "TradeCore",
-            "entry_date": str(datetime.now().date())
-        }
-        open_tickers.append(ticker)
+        # FIX: only touch live cash/positions for genuinely live trades.
+        # Paper-forced tickers (e.g. MOMENTUM blocked from live) must not drain live cash.
+        if not paper:
+            cash -= size["invest_amount"]
+            state["cash"] = cash
+            state["positions"][ticker] = {
+                "shares": size["shares"],
+                "entry_price": current_price,
+                "highest_price": current_price,
+                "trade_id": trade_id,
+                "invested": size["invest_amount"],
+                "source": "EdgeScanner" if is_edge else "TradeCore",
+                "entry_date": str(datetime.now().date())
+            }
+            open_tickers.append(ticker)
 
         actions.append({
             "action": "BUY",
@@ -579,21 +620,32 @@ def run_scan(watchlist: list) -> list:
             "price": current_price,
             "shares": size["shares"],
             "invest_amount": size["invest_amount"],
-            "confidence": final_signal.confidence
+            "confidence": final_signal.confidence,
+            "paper": paper
         })
-        logger.info(f"BUY {ticker} [{mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
+        logger.info(f"BUY {ticker} [{'PAPER' if paper else mode_label}] | £{size['invest_amount']:.2f} | {size['shares']} shares @ £{current_price:.2f} | {'EDGE' if is_edge else 'TC'}")
 
     # ── Save State + Snapshot ─────────────────────────────────────────────────
     portfolio_value = get_portfolio_value(state)
     save_portfolio_state(state)
 
-    insert_snapshot(
-        snapshot_date=str(datetime.now().date()),
-        total_value=portfolio_value,
-        cash_balance=cash,
-        invested_value=portfolio_value - cash,
-        paper=0
-    )
+    if portfolio_value < cash:
+        logger.warning(f"Snapshot skipped — portfolio_value £{portfolio_value:.2f} < cash £{cash:.2f}, likely stale/incomplete state")
+    else:
+        try:
+            from execution.t212_broker import T212Broker
+            _broker = T212Broker()
+            _t212_balance = _broker.get_account_balance()
+            portfolio_value = round(float(_t212_balance.get("total", portfolio_value)), 2)
+        except Exception as e:
+            logger.warning(f"T212 verification for snapshot failed, using local calc: {e}")
+        insert_snapshot(
+            snapshot_date=str(datetime.now().date()),
+            total_value=portfolio_value,
+            cash_balance=cash,
+            invested_value=portfolio_value - cash,
+            paper=0
+        )
 
     logger.info(f"Scan complete [{mode_label}] | {len(actions)} actions | Portfolio=£{portfolio_value:.2f}")
     return actions

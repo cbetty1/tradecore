@@ -49,8 +49,13 @@ class MomentumSignal(BaseSignal):
                 score += 10
                 notes.append(f"RSI neutral ({rsi_val:.1f})")
             elif rsi_val > 75:
-                score += 0
-                notes.append(f"RSI overbought ({rsi_val:.1f})")
+                day_change_pct = ((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2]) * 100
+                if day_change_pct >= 40:
+                    score += 20
+                    notes.append(f"RSI overbought but explosive mover (RSI {rsi_val:.1f}, +{day_change_pct:.1f}% today)")
+                else:
+                    score += 0
+                    notes.append(f"RSI overbought ({rsi_val:.1f})")
             else:
                 score += 5
                 notes.append(f"RSI ({rsi_val:.1f})")

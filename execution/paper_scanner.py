@@ -316,12 +316,15 @@ def run_paper_scan() -> dict:
             highest_price = current_price
             state["positions"][ticker]["highest_price"] = highest_price
 
+        min_hold = limits.get("min_hold_days_momentum", 3) if pos.get("signal_type") == "MOMENTUM" else 0
         exit_check = check_exit_conditions(
             current_price=current_price,
             entry_price=pos["entry_price"],
             stop_loss_pct=stop_loss_pct,
             take_profit_pct=take_profit_pct,
-            highest_price=highest_price
+            highest_price=highest_price,
+            min_hold_days=min_hold,
+            entry_date=pos.get("entry_date")
         )
 
         if exit_check["should_exit"]:
@@ -482,7 +485,9 @@ def run_paper_scan() -> dict:
             "entry_price": current_price,
             "highest_price": current_price,
             "trade_id": trade_id,
-            "invested": size["invest_amount"]
+            "invested": size["invest_amount"],
+            "signal_type": final_signal.signal_type,
+            "entry_date": str(datetime.now().date())
         }
         open_tickers.append(ticker)
 

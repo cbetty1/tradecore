@@ -51,14 +51,18 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
         if len(snapshots) < 2:
             return {"active": False, "reason": "Insufficient history"}
 
+        today_str = str(date.today())
+
+        if snapshots[0]["snapshot_date"] != today_str:
+            return {"active": False, "reason": "No snapshot yet today — skipped"}
+
         current_value = snapshots[0]["total_value"]
         previous_value = snapshots[1]["total_value"]
+        cash_flow = snapshots[0]["cash_flow"] or 0
 
         if current_value < MIN_PLAUSIBLE_VALUE:
             logger.warning(f"Kill switch skipped — current value £{current_value:.2f} looks like bad price data")
             return {"active": False, "reason": "Bad snapshot detected — skipped"}
-
-        today_str = str(date.today())
 
         with get_connection() as conn:
             today_snapshots = conn.execute(
@@ -77,7 +81,7 @@ def is_kill_switch_active(max_drawdown_pct: float = 8.0,
             opening_value = previous_value
             logger.debug(f"Daily loss baseline: yesterday's close £{opening_value:.2f} (fallback)")
 
-        daily_loss_pct_actual = ((opening_value - current_value) / opening_value) * 100
+        daily_loss_pct_actual = ((opening_value - current_value - cash_flow) / opening_value) * 100
 
         if daily_loss_pct_actual >= daily_loss_pct:
             reason = f"Daily loss limit hit: {daily_loss_pct_actual:.2f}% >= {daily_loss_pct}%"
