@@ -134,6 +134,10 @@ def job_monitor_positions():
                 from notifications.telegram import send_kill_switch_alert
                 send_kill_switch_alert(action["reason"])
 
+        from execution.edge_paper import monitor_positions as monitor_edge_paper
+        monitor_edge_paper()
+
+
     except Exception as e:
         logger.error(f"Position monitor failed: {e}")
 

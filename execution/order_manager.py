@@ -448,6 +448,15 @@ def run_scan(watchlist: list) -> list:
         final_signal = score_signal(raw_signal, df, paper=paper)
         logger.info(f"{ticker} | {final_signal.direction} | Conf={final_signal.confidence:.1f}%")
 
+        # ── EdgeScanner paper-test: 50%+ but below live bar ───────────────
+        if is_edge and final_signal.direction == "BUY":
+            live_bar = limits.get("min_confidence_threshold", 85.0)
+            paper_bar = limits.get("edge_paper_min_confidence", 50.0)
+            if paper_bar <= final_signal.confidence < live_bar:
+                from execution.edge_paper import record_entry
+                record_entry(ticker, current_price, final_signal.confidence, final_signal.notes)
+                continue
+
         if not final_signal.is_actionable(DEFAULT_CONFIDENCE_THRESHOLD):
             continue
         if final_signal.direction != "BUY":

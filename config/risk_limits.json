@@ -19,5 +19,6 @@
   "edge_max_position_pct": 12.0,
   "max_hold_days_tc": 20,
   "max_hold_days_edge": 14,
-  "min_hold_days_momentum": 5
+  "min_hold_days_momentum": 5,
+  "edge_paper_min_confidence": 50.0
 }
