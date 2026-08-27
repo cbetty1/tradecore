@@ -481,7 +481,9 @@ def run_scan(watchlist: list) -> list:
         final_signal = score_signal(raw_signal, df, paper=paper)
         logger.info(f"{ticker} | {final_signal.direction} | Conf={final_signal.confidence:.1f}%")
 
-        if not final_signal.is_actionable(DEFAULT_CONFIDENCE_THRESHOLD):
+        min_conf_threshold = limits.get("min_confidence_threshold", 65.0)
+        if not final_signal.is_actionable(min_conf_threshold):
+            logger.info(f"{ticker} — confidence {final_signal.confidence:.1f}% below threshold {min_conf_threshold}%, skipping")
             continue
         if final_signal.direction != "BUY":
             continue
