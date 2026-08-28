@@ -284,14 +284,23 @@ def reconcile_state_from_t212():
                 if avg_price <= 0:
                     logger.warning(f"Skipping add for {yf_ticker} — could not determine GBP entry price (order likely not fully settled yet)")
                     continue
+                from database.queries import get_open_trades
+                matched_trade_id = None
+                open_live_trades = get_open_trades(paper=0)
+                for t in open_live_trades:
+                    if t["ticker"] == yf_ticker:
+                        matched_trade_id = t["id"]
+                        break
+                if matched_trade_id is None:
+                    logger.warning(f"reconcile: no open DB trade found for {yf_ticker} — trade_id will be None, SELL confirmation may not update DB")
                 new_positions[yf_ticker] = {
                     "shares": qty,
                     "entry_price": avg_price,
                     "highest_price": avg_price,
-                    "trade_id": None,
+                    "trade_id": matched_trade_id,
                     "invested": round(qty * avg_price, 2)
                 }
-                logger.info(f"Added missing position from T212: {yf_ticker} x{qty} @ £{avg_price:.2f}")
+                logger.info(f"Added missing position from T212: {yf_ticker} x{qty} @ £{avg_price:.2f} | trade_id={matched_trade_id}")
 
             # Guard against overwriting a known good entry_price with a zero from T212
             if qty > 0 and yf_ticker in new_positions and new_positions[yf_ticker].get("entry_price", 0) == 0:

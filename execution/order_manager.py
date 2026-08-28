@@ -194,12 +194,14 @@ def run_scan(watchlist: list) -> list:
     if portfolio_value <= state["cash"]:
         logger.warning("Portfolio value equals cash — prices likely unavailable, skipping kill switch check")
         kill = {"active": False, "reason": "Prices unavailable — kill switch skipped"}
+        prices_unavailable = True
     else:
         kill = is_kill_switch_active(
-            max_drawdown_pct=8.0,
-            daily_loss_pct=3.0,
+            max_drawdown_pct=limits.get("max_drawdown_pct", 8.0),
+            daily_loss_pct=limits.get("daily_loss_limit_pct", 3.0),
             starting_capital=state["starting_capital"]
         )
+        prices_unavailable = False
 
     if kill["active"]:
         logger.critical(f"KILL SWITCH ACTIVE — {kill['reason']} — No trades will be placed.")
@@ -291,10 +293,17 @@ def run_scan(watchlist: list) -> list:
                 else:
                     logger.info(f"LIVE SELL CONFIRMED: {ticker} | Order ID={order_result.get('id', 'unknown')}")
                     trade_id = pos.get("trade_id")
+                    if not trade_id:
+                        fallback_trades = get_open_trades(paper=0)
+                        for t in fallback_trades:
+                            if t["ticker"] == ticker:
+                                trade_id = t["id"]
+                                logger.warning(f"No trade_id in state for {ticker} — found open DB trade {trade_id} by ticker lookup, using it")
+                                break
                     if trade_id:
                         close_trade(trade_id, pnl, exit_check["reason"])
                     else:
-                        logger.warning(f"No trade_id for {ticker} — skipping DB close")
+                        logger.warning(f"No trade_id for {ticker} — no open DB trade found either, skipping DB close")
                     from monitoring.health_monitor import reconcile_state_from_t212
                     reconcile_state_from_t212()
                     state = load_portfolio_state()
@@ -317,10 +326,17 @@ def run_scan(watchlist: list) -> list:
             del state["positions"][ticker]
 
             trade_id = pos.get("trade_id")
+            if not trade_id:
+                fallback_trades = get_open_trades(paper=0)
+                for t in fallback_trades:
+                    if t["ticker"] == ticker:
+                        trade_id = t["id"]
+                        logger.warning(f"No trade_id in state for {ticker} — found open DB trade {trade_id} by ticker lookup, using it")
+                        break
             if trade_id:
                 close_trade(trade_id, pnl, exit_check["reason"])
             else:
-                logger.warning(f"No trade_id for {ticker} — skipping DB close, position removed from state")
+                logger.warning(f"No trade_id for {ticker} — no open DB trade found either, skipping DB close, position removed from state")
 
             actions.append({
                 "action": "SELL",
@@ -372,6 +388,9 @@ def run_scan(watchlist: list) -> list:
             continue
         if choppy_mode:
             logger.info(f"Skipping {ticker} — CHOPPY regime, no new entries")
+            continue
+        if prices_unavailable:
+            logger.info(f"Skipping {ticker} — prices unavailable, no new entries until data confirmed")
             continue
 
         # ── Slot check — TC and EdgeScanner slots tracked separately ──────
