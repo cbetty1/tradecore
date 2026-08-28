@@ -463,6 +463,71 @@ def run_sync_check():
     return result
 
 
+def check_silent_failures():
+    """
+    Daily checks for silent-failure patterns that do not throw errors
+    but quietly break the system. Returns a list of flagged issue strings.
+    """
+    issues = []
+    try:
+        from database.db import get_connection
+        with get_connection() as conn:
+            observation_only_types = ("EARNINGS_DRIFT_PAPER", "BREAKOUT_PAPER")
+            rows = conn.execute("""
+                SELECT signal_type, COUNT(*) as signal_count
+                FROM signals
+                WHERE created_at >= datetime('now', '-7 days')
+                GROUP BY signal_type
+                HAVING signal_count >= 5
+            """).fetchall()
+            rows = [r for r in rows if r["signal_type"] not in observation_only_types]
+            for row in rows:
+                sig_type = row["signal_type"]
+                trade_count = conn.execute("""
+                    SELECT COUNT(*) as c FROM trades t
+                    JOIN signals s ON t.signal_id = s.id
+                    WHERE s.signal_type = ? AND t.opened_at >= datetime('now', '-7 days')
+                """, (sig_type,)).fetchone()["c"]
+                if trade_count == 0:
+                    issues.append(f"{sig_type} fired {row['signal_count']}x in 7 days but converted 0 trades")
+
+            rows = conn.execute("""
+                SELECT ticker, opened_at FROM trades
+                WHERE paper = 0 AND status = 'OPEN'
+                AND opened_at <= datetime('now', '-10 days')
+            """).fetchall()
+            for row in rows:
+                issues.append(f"{row['ticker']} live trade stuck OPEN since {row['opened_at']} (10+ days)")
+
+            rows = conn.execute("""
+                SELECT ticker, paper, COUNT(*) as c FROM trades
+                WHERE status = 'OPEN'
+                GROUP BY ticker, paper
+                HAVING c > 1
+            """).fetchall()
+            for row in rows:
+                mode = "PAPER" if row["paper"] else "LIVE"
+                issues.append(f"{row['ticker']} ({mode}) has {row['c']} open trades simultaneously")
+
+            rows = conn.execute("""
+                SELECT ticker, MAX(scanned_at) as last_scan FROM edge_scanner_results
+                WHERE scanned_at >= datetime('now', '-14 days')
+                GROUP BY ticker
+                HAVING last_scan <= datetime('now', '-4 days')
+            """).fetchall()
+            for row in rows:
+                ticker = row["ticker"]
+                tracked = conn.execute("""
+                    SELECT COUNT(*) as c FROM edge_scanner_outcomes
+                    WHERE ticker = ? AND signal_date >= date('now', '-14 days')
+                """, (ticker,)).fetchone()["c"]
+                if tracked == 0:
+                    issues.append(f"{ticker} last scanned {row['last_scan']} (4+ days ago) but has no outcome tracking rows")
+    except Exception as e:
+        issues.append(f"silent-failure check itself errored: {e}")
+    return issues
+
+
 def send_daily_digest():
     """21:00 — Send daily health summary to Telegram."""
     from notifications.telegram import send_message
@@ -498,6 +563,13 @@ def send_daily_digest():
         lines.append("<b>Last job runs:</b>")
         for job_name, last_time in sorted(_job_last_run.items()):
             lines.append(f"  • {job_name}: {last_time.strftime('%H:%M')}")
+
+    silent_issues = check_silent_failures()
+    if silent_issues:
+        lines.append("")
+        lines.append("<b>🔍 Silent-failure checks flagged:</b>")
+        for issue in silent_issues:
+            lines.append(f"  ⚠️ {issue}")
 
     lines.append("")
     lines.append(f"⚙️ TradeCore Health Monitor")

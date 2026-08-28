@@ -19,3 +19,4 @@ portfolio_state_paper.json
 *.bak
 config/watchlist.json
 portfolio_state_edge_paper.json
+config/risk_limits_paper.json
