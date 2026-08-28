@@ -500,14 +500,15 @@ def check_silent_failures():
                 issues.append(f"{row['ticker']} live trade stuck OPEN since {row['opened_at']} (10+ days)")
 
             rows = conn.execute("""
-                SELECT ticker, paper, COUNT(*) as c FROM trades
-                WHERE status = 'OPEN'
-                GROUP BY ticker, paper
+                SELECT t.ticker, t.paper, s.signal_type, COUNT(*) as c
+                FROM trades t JOIN signals s ON t.signal_id = s.id
+                WHERE t.status = 'OPEN'
+                GROUP BY t.ticker, t.paper, s.signal_type
                 HAVING c > 1
             """).fetchall()
             for row in rows:
                 mode = "PAPER" if row["paper"] else "LIVE"
-                issues.append(f"{row['ticker']} ({mode}) has {row['c']} open trades simultaneously")
+                issues.append(f"{row['ticker']} ({mode}, {row['signal_type']}) has {row['c']} open trades from the SAME signal source — possible real duplicate")
 
             rows = conn.execute("""
                 SELECT ticker, MAX(scanned_at) as last_scan FROM edge_scanner_results
