@@ -110,6 +110,7 @@ def _get_promotion_candidates() -> list:
     """
     cutoff = (datetime.now() - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     candidates = []
+    review_candidates = []
 
     try:
         with get_connection() as conn:
@@ -155,10 +156,17 @@ def _get_promotion_candidates() -> list:
 
                 if total_return > MAX_PLAUSIBLE_RETURN_PCT:
                     logger.warning(
-                        f"SUSPICIOUS DATA: {ticker} shows {total_return:.1f}% return — "
-                        f"likely bad price data (stock split, feed error). Skipping promotion. "
+                        f"REVIEW NEEDED: {ticker} shows {total_return:.1f}% return — "
+                        f"could be genuine, could be bad data (stock split, feed error). "
+                        f"Held back from auto-promotion pending manual check. "
                         f"first_price={first_price} latest_price={latest_outcome['outcome_price']}"
                     )
+                    review_candidates.append({
+                        "ticker": ticker,
+                        "signals": len(outcomes),
+                        "win_rate": round(win_rate * 100, 1),
+                        "total_return": round(total_return, 1)
+                    })
                     continue
 
                 candidates.append({
@@ -171,7 +179,7 @@ def _get_promotion_candidates() -> list:
     except Exception as e:
         logger.error(f"Promotion candidate query failed: {e}")
 
-    return candidates
+    return candidates, review_candidates
 
 
 def run_promotion_check():
@@ -193,7 +201,7 @@ def run_promotion_check():
         logger.info(f"Watchlist at cap ({WATCHLIST_CAP}) — no promotions possible")
         return
 
-    candidates = _get_promotion_candidates()
+    candidates, review_candidates = _get_promotion_candidates()
     promoted = []
 
     for c in candidates:
@@ -248,6 +256,10 @@ def run_promotion_check():
         send_promotion_alert(promoted)
     else:
         logger.info("Promotion check complete — no new promotions")
+
+    if review_candidates:
+        from notifications.telegram import send_review_needed_alert
+        send_review_needed_alert(review_candidates)
 
 
 def run_demotion_review():

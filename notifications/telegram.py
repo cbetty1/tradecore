@@ -624,6 +624,25 @@ def send_promotion_alert(promoted: list) -> bool:
     return send_message("\n".join(lines))
 
 
+def send_review_needed_alert(review_candidates: list) -> bool:
+    """EdgeScanner high-return candidates held back for manual review."""
+    lines = [
+        "⚠️ <b>HIGH RETURN — MANUAL REVIEW NEEDED</b>",
+        "",
+        f"<b>{len(review_candidates)} stock(s) held back from auto-promotion:</b>",
+        ""
+    ]
+    for c in review_candidates:
+        lines.append(f"  ❓ <b>{c['ticker']}</b>")
+        lines.append(f"     Signals: {c['signals']} | Win rate: {c['win_rate']}% | Return: +{c['total_return']}%")
+        lines.append("")
+    lines.append("Could be genuine, could be bad data (stock split, feed error).")
+    lines.append("Check price history before manually adding to watchlist.")
+    lines.append("")
+    lines.append("⚡ TradeCore EdgeScanner")
+    return send_message("\n".join(lines))
+
+
 def send_demotion_alert(demoted: list) -> bool:
     """EdgeScanner demotion notification."""
     lines = [
