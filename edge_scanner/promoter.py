@@ -37,6 +37,7 @@ WATCHLIST_CAP = 60
 MIN_SIGNALS = 3
 MIN_WIN_RATE = 0.66
 MIN_RETURN_PCT = 15.0
+MAX_PLAUSIBLE_RETURN_PCT = 300.0   # above this, data is suspect (e.g. stock split), not a real signal
 LOOKBACK_DAYS = 14
 
 # Re-promotion thresholds (for stocks previously live traded)
@@ -148,7 +149,16 @@ def _get_promotion_candidates() -> list:
                     continue
 
                 total_return = ((latest_outcome["outcome_price"] - first_price) / first_price) * 100
+
                 if total_return < MIN_RETURN_PCT:
+                    continue
+
+                if total_return > MAX_PLAUSIBLE_RETURN_PCT:
+                    logger.warning(
+                        f"SUSPICIOUS DATA: {ticker} shows {total_return:.1f}% return — "
+                        f"likely bad price data (stock split, feed error). Skipping promotion. "
+                        f"first_price={first_price} latest_price={latest_outcome['outcome_price']}"
+                    )
                     continue
 
                 candidates.append({
